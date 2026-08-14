@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.2.5 — Standalone Conway 3-D Life
+
+Added `standalone/Conway3DLife/Conway3DLife.ino`: a complete independent FastLED sketch with its own 5×5×5 map, B5/S45 3-D Life simulation, automatic reseeding, life-age colours, and optional GPIO4 reseed / GPIO8 pause controls. No master-gallery include is required.
+
 ## v0.2.4 — GPIO4/GPIO8 tailored controller
 
 The ESP32-C3 dual-button controller now matches Dad's existing wiring: **GPIO4** selects the next pattern in manual mode and **GPIO8** toggles auto/manual playback. The master sketch exposes pin macros for alternate wiring. GPIO8 documentation now clearly requires a released button at reset and recommends an external 10 kΩ pull-up if the SuperMini board does not already maintain its boot-time high level.
