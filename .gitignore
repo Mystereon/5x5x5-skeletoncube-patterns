@@ -1,0 +1,15 @@
+# Arduino IDE build artefacts
+build/
+*.elf
+*.hex
+*.eep
+*.map
+
+# Arduino IDE local settings
+*.arduino-workspace
+
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
