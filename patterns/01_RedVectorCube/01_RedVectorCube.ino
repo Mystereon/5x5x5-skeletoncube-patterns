@@ -1,0 +1,11 @@
+/*
+  SkeletonCube Patterns — Rotating red 3×3×3 vector wireframe cube.
+  Created by Dad (MysterEon) & Manus, 2026.
+
+  This is a standalone reference sketch. It fixes the shared master library to
+  one effect, so it can be uploaded, modified, and studied independently.
+*/
+
+#define SKELETONCUBE_AUTO_CYCLE 0
+#define SKELETONCUBE_FIXED_PATTERN PATTERN_WIREFRAME_CUBE
+#include "../../SkeletonCubePatterns/SkeletonCubePatterns.ino"

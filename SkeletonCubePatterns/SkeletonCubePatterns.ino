@@ -44,13 +44,64 @@ const bool SERPENTINE_LAYERS = false;
 const bool SHOW_MAPPING_MARKERS = false;
 
 // ---------- Pattern playback ----------
-const bool AUTO_CYCLE_PATTERNS = true;
-const Pattern FIXED_PATTERN = PATTERN_MATRIX_RAIN;
-constexpr uint32_t PATTERN_DURATION_MS = 10000;  // Ten seconds per pattern.
+// Reference sketches set these macros before including this master file.
+#ifndef SKELETONCUBE_AUTO_CYCLE
+  #define SKELETONCUBE_AUTO_CYCLE 1
+#endif
+#ifndef SKELETONCUBE_FIXED_PATTERN
+  #define SKELETONCUBE_FIXED_PATTERN PATTERN_MATRIX_RAIN
+#endif
+const bool AUTO_CYCLE_PATTERNS = SKELETONCUBE_AUTO_CYCLE;
+const Pattern FIXED_PATTERN = (Pattern)SKELETONCUBE_FIXED_PATTERN;
+
+// Each effect gets enough time to be read as a little scene rather than a flash.
+// All durations are at least twice the original 10-second dwell.
+uint32_t dwellForPattern(Pattern pattern) {
+  switch (pattern) {
+    case PATTERN_WIREFRAME_CUBE: return 24000;
+    case PATTERN_SOLID_CUBE:     return 22000;
+    case PATTERN_SPHERE:         return 22000;
+    case PATTERN_OCTAHEDRON:     return 22000;
+    case PATTERN_VOXEL_MODEL:    return 26000;
+    case PATTERN_BOUNCING_BLOCK: return 24000;
+    case PATTERN_RAIN:           return 26000;
+    case PATTERN_COLUMN_SWEEP:   return 20000;
+    case PATTERN_MATRIX_RAIN:    return 36000;
+    case PATTERN_CORNER_CUBES:   return 26000;
+    case PATTERN_GLITTER:        return 22000;
+    case PATTERN_PONG:           return 40000;
+    case PATTERN_TETRIS:         return 50000;
+    case PATTERN_BLINKING_EYE:   return 26000;
+    case PATTERN_DNA_HELIX:      return 28000;
+    case PATTERN_METEORS:        return 26000;
+    case PATTERN_SNAKE:          return 42000;
+    case PATTERN_INVADERS:       return 36000;
+    case PATTERN_LIFE:           return 46000;
+    case PATTERN_CLOUDS:         return 32000;
+    case PATTERN_PLASMA:         return 30000;
+    case PATTERN_FIRE:           return 32000;
+    case PATTERN_HOURGLASS:      return 42000;
+    case PATTERN_PULSE_CUBE:     return 26000;
+    case PATTERN_UPWARD_RED_RAIN:return 26000;
+    case PATTERN_SPIRALS:        return 34000;
+    case PATTERN_POINT_BOUNCER:  return 24000;
+    case PATTERN_WRAPPING_COMETS:return 32000;
+    default:                      return 24000;
+  }
+}
+
+Pattern cyclePattern = PATTERN_WIREFRAME_CUBE;
+uint32_t patternStartedAt = 0;
 
 Pattern activePattern() {
   if (!AUTO_CYCLE_PATTERNS) return FIXED_PATTERN;
-  return (Pattern)((millis() / PATTERN_DURATION_MS) % PATTERN_COUNT);
+
+  const uint32_t now = millis();
+  if (now - patternStartedAt >= dwellForPattern(cyclePattern)) {
+    cyclePattern = (Pattern)((cyclePattern + 1) % PATTERN_COUNT);
+    patternStartedAt = now;
+  }
+  return cyclePattern;
 }
 
 // ---------- Coordinate mapper ----------
@@ -668,6 +719,358 @@ void renderMeteors() {
   }
 }
 
+// ---------- 3-D wrapping snake ----------
+constexpr uint8_t SNAKE_LENGTH = 9;
+int8_t snakeX[SNAKE_LENGTH], snakeY[SNAKE_LENGTH], snakeZ[SNAKE_LENGTH];
+int8_t snakeDX = 1, snakeDY = 0, snakeDZ = 0;
+bool snakeReady = false;
+uint32_t lastSnakeStep = 0;
+constexpr uint16_t SNAKE_STEP_MS = 175;
+
+int8_t wrap5(int value) {
+  value %= N;
+  if (value < 0) value += N;
+  return value;
+}
+
+void resetSnake() {
+  for (uint8_t i = 0; i < SNAKE_LENGTH; ++i) {
+    snakeX[i] = wrap5(2 - i);
+    snakeY[i] = 2;
+    snakeZ[i] = 2;
+  }
+  snakeDX = 1; snakeDY = 0; snakeDZ = 0;
+  snakeReady = true;
+}
+
+bool snakeOccupies(int8_t x, int8_t y, int8_t z) {
+  for (uint8_t i = 0; i < SNAKE_LENGTH - 1; ++i)
+    if (snakeX[i] == x && snakeY[i] == y && snakeZ[i] == z) return true;
+  return false;
+}
+
+void chooseSnakeDirection() {
+  const int8_t directions[6][3] = {
+    { 1, 0, 0}, {-1, 0, 0}, {0, 1, 0},
+    { 0,-1, 0}, { 0, 0, 1}, {0, 0,-1}
+  };
+
+  for (uint8_t attempt = 0; attempt < 6; ++attempt) {
+    const uint8_t choice = random8(6);
+    const int8_t dx = directions[choice][0];
+    const int8_t dy = directions[choice][1];
+    const int8_t dz = directions[choice][2];
+    if (dx == -snakeDX && dy == -snakeDY && dz == -snakeDZ) continue;
+
+    const int8_t nx = wrap5(snakeX[0] + dx);
+    const int8_t ny = wrap5(snakeY[0] + dy);
+    const int8_t nz = wrap5(snakeZ[0] + dz);
+    if (!snakeOccupies(nx, ny, nz)) {
+      snakeDX = dx; snakeDY = dy; snakeDZ = dz;
+      return;
+    }
+  }
+}
+
+void updateSnake() {
+  if (!snakeReady) resetSnake();
+  const uint32_t now = millis();
+  if (now - lastSnakeStep < SNAKE_STEP_MS) return;
+  lastSnakeStep = now;
+
+  if (random8() < 82) chooseSnakeDirection();
+  int8_t nx = wrap5(snakeX[0] + snakeDX);
+  int8_t ny = wrap5(snakeY[0] + snakeDY);
+  int8_t nz = wrap5(snakeZ[0] + snakeDZ);
+  if (snakeOccupies(nx, ny, nz)) {
+    chooseSnakeDirection();
+    nx = wrap5(snakeX[0] + snakeDX);
+    ny = wrap5(snakeY[0] + snakeDY);
+    nz = wrap5(snakeZ[0] + snakeDZ);
+    if (snakeOccupies(nx, ny, nz)) { resetSnake(); return; }
+  }
+
+  for (int i = SNAKE_LENGTH - 1; i > 0; --i) {
+    snakeX[i] = snakeX[i - 1];
+    snakeY[i] = snakeY[i - 1];
+    snakeZ[i] = snakeZ[i - 1];
+  }
+  snakeX[0] = nx; snakeY[0] = ny; snakeZ[0] = nz;
+}
+
+void renderSnake() {
+  updateSnake();
+  for (uint8_t i = 0; i < SNAKE_LENGTH; ++i)
+    setVoxel(snakeX[i], snakeY[i], snakeZ[i], CHSV(96 - i * 8, 255, 255 - i * 18));
+}
+
+// ---------- Marching 3-D Space Invaders ----------
+int8_t invaderShift = 0;
+int8_t invaderDirection = 1;
+int8_t invaderDepth = 0;
+uint32_t lastInvaderStep = 0;
+constexpr uint16_t INVADER_STEP_MS = 360;
+
+void drawInvader(int cx, int cy, int cz, const CRGB &colour) {
+  const int8_t shape[6][2] = {{0,0}, {2,0}, {1,1}, {0,2}, {1,2}, {2,2}};
+  for (uint8_t i = 0; i < 6; ++i) {
+    for (int dy = 0; dy < 2; ++dy)
+      setVoxel(cx + shape[i][0], cy + dy, cz + shape[i][1], colour);
+  }
+}
+
+void renderInvaders() {
+  const uint32_t now = millis();
+  if (now - lastInvaderStep >= INVADER_STEP_MS) {
+    lastInvaderStep = now;
+    invaderShift += invaderDirection;
+    if (invaderShift <= 0 || invaderShift >= 2) {
+      invaderDirection = -invaderDirection;
+      invaderDepth = (invaderDepth + 1) % 3;
+    }
+  }
+
+  drawInvader(invaderShift, invaderDepth, 0, CRGB::Green);
+  drawInvader(2 - invaderShift, invaderDepth, 2, CRGB(0, 180, 28));
+  const int laserZ = (millis() / 95) % N;
+  setVoxel(2, 4, laserZ, CRGB::Red);
+}
+
+// ---------- 3-D Conway-style Game of Life ----------
+// A 26-neighbour 3-D rule: birth on 5 neighbours, survive on 4 or 5.
+bool lifeCells[N][N][N];
+bool lifeNext[N][N][N];
+bool lifeReady = false;
+uint32_t lastLifeStep = 0;
+constexpr uint16_t LIFE_STEP_MS = 560;
+uint16_t lifeGeneration = 0;
+
+void resetLife() {
+  for (uint8_t x = 0; x < N; ++x)
+    for (uint8_t y = 0; y < N; ++y)
+      for (uint8_t z = 0; z < N; ++z)
+        lifeCells[x][y][z] = random8() < 66;
+  lifeGeneration = 0;
+  lifeReady = true;
+}
+
+uint8_t lifeNeighbours(int x, int y, int z) {
+  uint8_t neighbours = 0;
+  for (int dx = -1; dx <= 1; ++dx)
+    for (int dy = -1; dy <= 1; ++dy)
+      for (int dz = -1; dz <= 1; ++dz) {
+        if (dx == 0 && dy == 0 && dz == 0) continue;
+        const int nx = x + dx, ny = y + dy, nz = z + dz;
+        if (nx >= 0 && nx < N && ny >= 0 && ny < N && nz >= 0 && nz < N && lifeCells[nx][ny][nz])
+          ++neighbours;
+      }
+  return neighbours;
+}
+
+void updateLife() {
+  if (!lifeReady) resetLife();
+  const uint32_t now = millis();
+  if (now - lastLifeStep < LIFE_STEP_MS) return;
+  lastLifeStep = now;
+
+  uint8_t living = 0;
+  for (int x = 0; x < N; ++x)
+    for (int y = 0; y < N; ++y)
+      for (int z = 0; z < N; ++z) {
+        const uint8_t neighbours = lifeNeighbours(x, y, z);
+        lifeNext[x][y][z] = lifeCells[x][y][z] ? (neighbours == 4 || neighbours == 5) : (neighbours == 5);
+        if (lifeNext[x][y][z]) ++living;
+      }
+
+  for (int x = 0; x < N; ++x)
+    for (int y = 0; y < N; ++y)
+      for (int z = 0; z < N; ++z)
+        lifeCells[x][y][z] = lifeNext[x][y][z];
+
+  ++lifeGeneration;
+  if (living < 4 || living > 90 || lifeGeneration > 75) resetLife();
+}
+
+void renderLife() {
+  updateLife();
+  for (int x = 0; x < N; ++x)
+    for (int y = 0; y < N; ++y)
+      for (int z = 0; z < N; ++z)
+        if (lifeCells[x][y][z]) setVoxel(x, y, z, CHSV(lifeGeneration * 7 + x * 17 + z * 12, 230, 255));
+}
+
+// ---------- Slow volumetric clouds ----------
+void renderClouds() {
+  const uint16_t drift = millis() / 14;
+  for (int z = 0; z < N; ++z)
+    for (int y = 0; y < N; ++y)
+      for (int x = 0; x < N; ++x) {
+        const uint8_t n = inoise8(x * 62 + drift, y * 62 + drift / 3, z * 62 + drift / 5);
+        if (n > 148) setVoxel(x, y, z, CHSV(145, 70, qsub8(n, 110)));
+      }
+}
+
+// ---------- 3-D neon plasma ----------
+void renderPlasma() {
+  const uint8_t phase = millis() >> 3;
+  for (int z = 0; z < N; ++z)
+    for (int y = 0; y < N; ++y)
+      for (int x = 0; x < N; ++x) {
+        const uint8_t a = sin8(phase + x * 46);
+        const uint8_t b = sin8(phase / 2 + y * 55);
+        const uint8_t c = sin8(phase / 3 + z * 62);
+        const uint8_t hue = ((uint16_t)a + b + c) / 3;
+        const uint8_t value = 80 + (((uint16_t)a + b + c) / 5);
+        setVoxel(x, y, z, CHSV(hue, 255, value));
+      }
+}
+
+// ---------- Rising 3-D fire ----------
+void renderFire() {
+  const uint16_t time = millis() / 5;
+  for (int z = 0; z < N; ++z)
+    for (int y = 0; y < N; ++y)
+      for (int x = 0; x < N; ++x) {
+        const uint8_t noise = inoise8(x * 60, y * 60, z * 72 - time);
+        const uint8_t heat = qsub8(noise, z * 39);
+        if (heat > 22) setVoxel(x, y, z, HeatColor(heat));
+      }
+}
+
+// ---------- 3-D hourglass ----------
+void renderHourglass() {
+  const uint8_t raw = (millis() / 310) % 48;
+  const uint8_t fill = raw <= 24 ? raw : 48 - raw;
+
+  // Cyan glass corners taper into the neck at (2,2,2).
+  for (int z = 0; z < N; ++z) {
+    const int r = abs(z - 2);
+    setVoxel(2 - r, 2 - r, z, CRGB(0, 80, 120));
+    setVoxel(2 + r, 2 - r, z, CRGB(0, 80, 120));
+    setVoxel(2 - r, 2 + r, z, CRGB(0, 80, 120));
+    setVoxel(2 + r, 2 + r, z, CRGB(0, 80, 120));
+  }
+
+  for (int z = 0; z < N; ++z)
+    for (int y = 0; y < N; ++y)
+      for (int x = 0; x < N; ++x) {
+        const uint8_t hash = (x * 11 + y * 17 + z * 23) % 25;
+        const int distance = abs(x - 2) + abs(y - 2);
+        const bool upperShape = z >= 3 && distance <= (z == 4 ? 3 : 2);
+        const bool lowerShape = z <= 1 && distance <= (z == 0 ? 3 : 2);
+        if (upperShape && hash < 24 - fill) setVoxel(x, y, z, CRGB::Gold);
+        if (lowerShape && hash < fill) setVoxel(x, y, z, CRGB::Gold);
+      }
+
+  const int fallingZ = 4 - ((millis() / 110) % 5);
+  setVoxel(2, 2, fallingZ, CRGB::White);
+}
+
+// ---------- Reducing and expanding "ping-pong" cube ----------
+void renderPulseCube() {
+  const uint8_t wave = sin8(millis() >> 3);
+  const int radius = wave < 85 ? 0 : (wave < 170 ? 1 : 2);
+  const int lo = 2 - radius;
+  const int hi = 2 + radius;
+  const CRGB colour = CHSV(millis() >> 4, 230, 255);
+
+  for (int z = lo; z <= hi; ++z)
+    for (int y = lo; y <= hi; ++y)
+      for (int x = lo; x <= hi; ++x) {
+        uint8_t faces = 0;
+        if (x == lo || x == hi) ++faces;
+        if (y == lo || y == hi) ++faces;
+        if (z == lo || z == hi) ++faces;
+        if (faces >= 2) setVoxel(x, y, z, colour);
+      }
+}
+
+// ---------- Dense upward red rain with fast fade ----------
+int8_t redRainHeads[N * N];
+uint8_t redRainPhase[N * N];
+bool redRainReady = false;
+uint32_t lastRedRainStep = 0;
+constexpr uint16_t RED_RAIN_STEP_MS = 34;
+
+void resetUpwardRedRain() {
+  for (uint8_t i = 0; i < N * N; ++i) {
+    redRainHeads[i] = random8(N);
+    redRainPhase[i] = random8(3);
+  }
+  redRainReady = true;
+}
+
+void renderUpwardRedRain() {
+  if (!redRainReady) resetUpwardRedRain();
+  const uint32_t now = millis();
+  if (now - lastRedRainStep < RED_RAIN_STEP_MS) return;
+  lastRedRainStep = now;
+
+  fadeToBlackBy(leds, NUM_LEDS, 145);
+  for (int y = 0; y < N; ++y)
+    for (int x = 0; x < N; ++x) {
+      const uint8_t i = y * N + x;
+      if (++redRainPhase[i] >= 3) {
+        redRainPhase[i] = 0;
+        if (++redRainHeads[i] >= N) redRainHeads[i] = 0;
+      }
+      addVoxel(x, y, redRainHeads[i], CRGB(255, 24, 0));
+      addVoxel(x, y, redRainHeads[i] - 1, CRGB(105, 0, 0));
+      addVoxel(x, y, redRainHeads[i] - 2, CRGB(35, 0, 0));
+    }
+}
+
+// ---------- Twin 3-D spirals ----------
+void renderSpirals() {
+  const uint8_t phase = millis() >> 3;
+  for (int z = 0; z < N; ++z) {
+    const uint8_t a = phase + z * 51;
+    for (uint8_t arm = 0; arm < 2; ++arm) {
+      const uint8_t angle = a + arm * 128;
+      const int x = 2 + ((int)sin8(angle) - 128) / 70;
+      const int y = 2 + ((int)sin8(angle + 64) - 128) / 70;
+      setVoxel(x, y, z, arm ? CRGB::Purple : CRGB::Orange);
+    }
+  }
+}
+
+// ---------- Single-point 3-D bouncer ----------
+int8_t pointX = 1, pointY = 2, pointZ = 3;
+int8_t pointVX = 1, pointVY = -1, pointVZ = 1;
+uint32_t lastPointStep = 0;
+constexpr uint16_t POINT_STEP_MS = 90;
+
+void stepPointAxis(int8_t &position, int8_t &velocity) {
+  if (position + velocity < 0 || position + velocity >= N) velocity = -velocity;
+  position += velocity;
+}
+
+void renderPointBouncer() {
+  const uint32_t now = millis();
+  if (now - lastPointStep >= POINT_STEP_MS) {
+    lastPointStep = now;
+    stepPointAxis(pointX, pointVX);
+    stepPointAxis(pointY, pointVY);
+    stepPointAxis(pointZ, pointVZ);
+  }
+  setVoxel(pointX, pointY, pointZ, CRGB::White);
+}
+
+// ---------- Multiple 3-D wrapping comets ----------
+void renderWrappingComets() {
+  const int tick = millis() / 58;
+  for (uint8_t comet = 0; comet < 3; ++comet) {
+    for (uint8_t tail = 0; tail < 5; ++tail) {
+      const int p = tick - tail;
+      const int x = wrap5(p * (comet + 1) + comet * 2);
+      const int y = wrap5(p * (comet + 2) + comet);
+      const int z = wrap5(p * (comet + 3) + comet * 3);
+      const uint8_t value = 255 - tail * 46;
+      setVoxel(x, y, z, CHSV(150 + comet * 32, 240, value));
+    }
+  }
+}
+
 void setup() {
   FastLED.addLeds<CHIPSET, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
@@ -694,7 +1097,8 @@ void loop() {
   // Only effects that require motion trails keep the prior framebuffer.
   const bool keepsFramebuffer = pattern == PATTERN_RAIN ||
                                 pattern == PATTERN_MATRIX_RAIN ||
-                                pattern == PATTERN_GLITTER;
+                                pattern == PATTERN_GLITTER ||
+                                pattern == PATTERN_UPWARD_RED_RAIN;
   if (!keepsFramebuffer || changedPattern) fill_solid(leds, NUM_LEDS, CRGB::Black);
   previousPattern = pattern;
 
@@ -715,6 +1119,18 @@ void loop() {
     case PATTERN_BLINKING_EYE:   renderBlinkingEye();                  break;
     case PATTERN_DNA_HELIX:      renderDNAHelix();                     break;
     case PATTERN_METEORS:        renderMeteors();                      break;
+    case PATTERN_SNAKE:          renderSnake();                        break;
+    case PATTERN_INVADERS:       renderInvaders();                     break;
+    case PATTERN_LIFE:           renderLife();                         break;
+    case PATTERN_CLOUDS:         renderClouds();                       break;
+    case PATTERN_PLASMA:         renderPlasma();                       break;
+    case PATTERN_FIRE:           renderFire();                         break;
+    case PATTERN_HOURGLASS:      renderHourglass();                    break;
+    case PATTERN_PULSE_CUBE:     renderPulseCube();                    break;
+    case PATTERN_UPWARD_RED_RAIN:renderUpwardRedRain();                break;
+    case PATTERN_SPIRALS:        renderSpirals();                      break;
+    case PATTERN_POINT_BOUNCER:  renderPointBouncer();                 break;
+    case PATTERN_WRAPPING_COMETS:renderWrappingComets();               break;
     default: break;
   }
 
