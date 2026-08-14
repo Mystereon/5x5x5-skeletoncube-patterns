@@ -157,11 +157,13 @@ GPIO3 is a normal GPIO on the ESP32-C3. Avoid GPIO2, GPIO8, and GPIO9 for this s
 Use the second controller when you want both long automatic playback and hands-on browsing:
 
 ```text
-GPIO3 ────[ NEXT ]─────────── GND
-GPIO4 ────[ AUTO / MANUAL ]── GND
+GPIO4 ────[ NEXT ]─────────── GND
+GPIO8 ────[ AUTO / MANUAL ]── GND
 ```
 
-Open [`patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino`](patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino). The cube starts in **auto** mode. Press GPIO4 to pause the current pattern and enter **manual** mode; then press GPIO3 to advance one pattern at a time. Press GPIO4 again to restart **auto** playback from the pattern currently on display. GPIO4 is deliberately chosen instead of GPIO9 so a held button cannot alter ESP32-C3 boot strapping.[2] [3]
+Open [`patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino`](patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino). The cube starts in **auto** mode. Press GPIO8 to pause the current pattern and enter **manual** mode; then press GPIO4 to advance one pattern at a time. Press GPIO8 again to restart **auto** playback from the pattern currently on display.
+
+GPIO8 is an ESP32-C3 boot strapping pin. The mode switch is usable after startup but it must be **released** at reset and power-up. If the SuperMini board does not already keep GPIO8 high at boot, add a 10 kΩ pull-up resistor from GPIO8 to 3V3. If booting or uploading becomes unreliable, temporarily disconnect the GPIO8 switch and substitute a normal GPIO when feasible.[2] [3]
 
 ## Electrical notes
 

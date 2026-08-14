@@ -85,6 +85,7 @@ cat > "$BUTTON_PATH/29_ESP32C3_NextPatternButton.ino" <<'EOF'
 
 #define SKELETONCUBE_AUTO_CYCLE 0
 #define SKELETONCUBE_PATTERN_BUTTON 1
+#define SKELETONCUBE_PATTERN_BUTTON_PIN 3
 #include "../../SkeletonCubePatterns/SkeletonCubePatterns.ino"
 EOF
 cat > "$BUTTON_PATH/README.md" <<'EOF'
@@ -107,21 +108,26 @@ cat > "$DUAL_BUTTON_PATH/30_ESP32C3_DualButtonController.ino" <<'EOF'
   SkeletonCube Patterns — ESP32-C3 SuperMini dual-button controller
   Created by Dad (MysterEon) & Manus, 2026.
 
-  GPIO3 ---- [ NEXT ] ---- GND
-  GPIO4 ---- [ AUTO / MANUAL ] ---- GND
+  GPIO4 ---- [ NEXT ] ---- GND
+  GPIO8 ---- [ AUTO / MANUAL ] ---- GND
+
+  Release GPIO8 before reset/power-up: it is a boot strapping pin.
 */
 
 #define SKELETONCUBE_AUTO_CYCLE 1
 #define SKELETONCUBE_PATTERN_BUTTON 1
 #define SKELETONCUBE_MODE_BUTTON 1
+#define SKELETONCUBE_PATTERN_BUTTON_PIN 4
+#define SKELETONCUBE_MODE_BUTTON_PIN 8
 #include "../../SkeletonCubePatterns/SkeletonCubePatterns.ino"
 EOF
 cat > "$DUAL_BUTTON_PATH/README.md" <<'EOF'
 # ESP32-C3 SuperMini dual-button controller
 
-Wire momentary switches from **GPIO3** and **GPIO4** to GND. GPIO3 advances a
-pattern in manual mode; GPIO4 toggles auto/manual mode. Both pins use
-`INPUT_PULLUP`. GPIO4 is deliberately used rather than boot-strapping GPIO9.
+Wire momentary switches from **GPIO4** and **GPIO8** to GND. GPIO4 advances a
+pattern in manual mode; GPIO8 toggles auto/manual mode. Both pins use
+`INPUT_PULLUP` after boot. GPIO8 is a boot strapping pin, so release it before
+reset/power-up and add a 10 kΩ pull-up to 3V3 if the board lacks one.
 EOF
 
 cat > "$PATTERNS/README.md" <<'EOF'
@@ -131,7 +137,7 @@ Every folder here exposes one effect as an individual Arduino sketch. The first
 28 are small wrappers that disable automatic cycling, select exactly one
 `Pattern`, and include the shared `SkeletonCubePatterns.ino` source. Folder 29
 is an ESP32-C3 SuperMini single-button controller, and folder 30 is a dual-button
-GPIO3/GPIO4 auto/manual controller. This avoids copied
+GPIO4/GPIO8 auto/manual controller. This avoids copied
 implementations drifting apart while still providing direct, uploadable pattern
 entry points for exploration and reference.
 

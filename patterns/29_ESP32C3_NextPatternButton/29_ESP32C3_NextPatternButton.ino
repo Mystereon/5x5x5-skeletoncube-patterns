@@ -13,4 +13,5 @@
 
 #define SKELETONCUBE_AUTO_CYCLE 0
 #define SKELETONCUBE_PATTERN_BUTTON 1
+#define SKELETONCUBE_PATTERN_BUTTON_PIN 3
 #include "../../SkeletonCubePatterns/SkeletonCubePatterns.ino"

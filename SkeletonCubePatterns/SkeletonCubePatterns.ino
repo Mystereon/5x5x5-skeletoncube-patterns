@@ -59,6 +59,13 @@ const bool SHOW_MAPPING_MARKERS = false;
 #ifndef SKELETONCUBE_MODE_BUTTON
   #define SKELETONCUBE_MODE_BUTTON 0
 #endif
+// Defaults for Dad's ESP32-C3 SuperMini wiring. Override in a wrapper if needed.
+#ifndef SKELETONCUBE_PATTERN_BUTTON_PIN
+  #define SKELETONCUBE_PATTERN_BUTTON_PIN 4
+#endif
+#ifndef SKELETONCUBE_MODE_BUTTON_PIN
+  #define SKELETONCUBE_MODE_BUTTON_PIN 8
+#endif
 const bool AUTO_CYCLE_PATTERNS = SKELETONCUBE_AUTO_CYCLE;
 const Pattern FIXED_PATTERN = (Pattern)SKELETONCUBE_FIXED_PATTERN;
 const bool ENABLE_PATTERN_BUTTON = SKELETONCUBE_PATTERN_BUTTON;
@@ -118,11 +125,13 @@ Pattern activePattern() {
   return cyclePattern;
 }
 
-// ---------- Optional next-pattern momentary button ----------
-// ESP32-C3 SuperMini recommendation: GPIO3. It is a normal GPIO, unlike
-// GPIO2/GPIO8/GPIO9 (boot strapping pins), and avoids GPIO18/GPIO19 USB-JTAG.
-constexpr uint8_t PATTERN_BUTTON_PIN = 3;
-constexpr uint8_t MODE_BUTTON_PIN = 4;  // Normal GPIO; safer than strapping GPIO9.
+// ---------- Optional ESP32-C3 momentary buttons ----------
+// Dad's wiring: GPIO4 = NEXT PATTERN; GPIO8 = AUTO / MANUAL.
+// GPIO8 is a boot strapping pin. It is safe as an input after boot, but its
+// button MUST be released during reset/power-up. A 10 kΩ pull-up to 3V3 is
+// prudent if your specific SuperMini board does not already hold GPIO8 high.
+constexpr uint8_t PATTERN_BUTTON_PIN = SKELETONCUBE_PATTERN_BUTTON_PIN;
+constexpr uint8_t MODE_BUTTON_PIN = SKELETONCUBE_MODE_BUTTON_PIN;
 constexpr uint16_t BUTTON_DEBOUNCE_MS = 35;
 bool buttonRawState = HIGH;
 bool buttonStableState = HIGH;
@@ -133,14 +142,14 @@ uint32_t modeButtonLastChangeAt = 0;
 
 void setupPatternButton() {
   if (!ENABLE_PATTERN_BUTTON) return;
-  // Wire switch directly between GPIO3 and GND. INPUT_PULLUP means pressed=LOW.
+  // Wire the next-pattern switch directly between GPIO4 and GND. INPUT_PULLUP means pressed=LOW.
   pinMode(PATTERN_BUTTON_PIN, INPUT_PULLUP);
   buttonRawState = digitalRead(PATTERN_BUTTON_PIN);
   buttonStableState = buttonRawState;
 }
 
 void updatePatternButton() {
-  // GPIO3 is meaningful only in manual mode. It is intentionally ignored
+  // GPIO4 is meaningful only in manual mode. It is intentionally ignored
   // while the gallery is auto-cycling.
   if (!ENABLE_PATTERN_BUTTON || autoCycleMode) return;
 
@@ -163,7 +172,8 @@ void updatePatternButton() {
 
 void setupModeButton() {
   if (!ENABLE_MODE_BUTTON) return;
-  // Wire the GPIO4 momentary switch to GND. INPUT_PULLUP means pressed=LOW.
+  // Wire the GPIO8 momentary switch to GND. INPUT_PULLUP means pressed=LOW.
+  // Important: release this strapping-pin button before reset or power-up.
   pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
   modeButtonRawState = digitalRead(MODE_BUTTON_PIN);
   modeButtonStableState = modeButtonRawState;
@@ -182,7 +192,7 @@ void updateModeButton() {
   if ((now - modeButtonLastChangeAt) < BUTTON_DEBOUNCE_MS || modeButtonStableState == modeButtonRawState) return;
   modeButtonStableState = modeButtonRawState;
 
-  // Pressing GPIO4 toggles auto-cycle/manual mode. The visible pattern stays
+  // Pressing GPIO8 toggles auto-cycle/manual mode. The visible pattern stays
   // selected; returning to auto restarts that pattern's dwell interval.
   if (modeButtonStableState == LOW) {
     autoCycleMode = !autoCycleMode;
