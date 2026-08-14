@@ -56,12 +56,15 @@ patterns/                             # 28 fixed-pattern sketches plus an ESP32-
   30_ESP32C3_DualButtonController/
 standalone/                           # Fully independent sketches with no master-library include
   Conway3DLife/
+  CubeFXWeb/
 tools/generate_pattern_examples.sh    # Rebuilds the reference-wrapper folders
 ```
 
 Every folder under [`patterns/`](patterns/) contains an uploadable `.ino` file and a short README. These reference sketches intentionally share the master implementation rather than carrying 28 divergent copies: each one disables auto-cycling, selects exactly one pattern, and includes the common code. **Clone or download the entire repository before opening a reference sketch**, so its relative include path remains valid.
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
+
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 browser controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes an HTTP API for the 11 built-in 3-D patterns.
 
 ## Hardware assumptions
 

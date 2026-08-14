@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.0 — CubeFXWeb browser controller
+
+Added `standalone/CubeFXWeb/CubeFXWeb.ino`: an ESP32-C3 local Wi-Fi browser controller inspired by WS2812FX. It serves a cube-aware side-tab interface with a live isometric voxel preview, 11 3-D patterns, brightness/speed/dwell controls, auto/manual playback, a simple HTTP API, and GPIO4/GPIO8 hardware control.
+
 ## v0.2.5 — Standalone Conway 3-D Life
 
 Added `standalone/Conway3DLife/Conway3DLife.ino`: a complete independent FastLED sketch with its own 5×5×5 map, B5/S45 3-D Life simulation, automatic reseeding, life-age colours, and optional GPIO4 reseed / GPIO8 pause controls. No master-gallery include is required.
