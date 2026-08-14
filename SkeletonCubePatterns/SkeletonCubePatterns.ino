@@ -53,8 +53,12 @@ const bool SHOW_MAPPING_MARKERS = false;
 #ifndef SKELETONCUBE_FIXED_PATTERN
   #define SKELETONCUBE_FIXED_PATTERN PATTERN_MATRIX_RAIN
 #endif
+#ifndef SKELETONCUBE_PATTERN_BUTTON
+  #define SKELETONCUBE_PATTERN_BUTTON 0
+#endif
 const bool AUTO_CYCLE_PATTERNS = SKELETONCUBE_AUTO_CYCLE;
 const Pattern FIXED_PATTERN = (Pattern)SKELETONCUBE_FIXED_PATTERN;
+const bool ENABLE_PATTERN_BUTTON = SKELETONCUBE_PATTERN_BUTTON;
 
 // Each effect gets enough time to be read as a little scene rather than a flash.
 // All durations are at least twice the original 10-second dwell.
@@ -96,6 +100,8 @@ Pattern cyclePattern = PATTERN_WIREFRAME_CUBE;
 uint32_t patternStartedAt = 0;
 
 Pattern activePattern() {
+  // In button mode, cyclePattern is advanced only by a debounced press.
+  if (ENABLE_PATTERN_BUTTON) return cyclePattern;
   if (!AUTO_CYCLE_PATTERNS) return FIXED_PATTERN;
 
   const uint32_t now = millis();
@@ -104,6 +110,43 @@ Pattern activePattern() {
     patternStartedAt = now;
   }
   return cyclePattern;
+}
+
+// ---------- Optional next-pattern momentary button ----------
+// ESP32-C3 SuperMini recommendation: GPIO3. It is a normal GPIO, unlike
+// GPIO2/GPIO8/GPIO9 (boot strapping pins), and avoids GPIO18/GPIO19 USB-JTAG.
+constexpr uint8_t PATTERN_BUTTON_PIN = 3;
+constexpr uint16_t BUTTON_DEBOUNCE_MS = 35;
+bool buttonRawState = HIGH;
+bool buttonStableState = HIGH;
+uint32_t buttonLastChangeAt = 0;
+
+void setupPatternButton() {
+  if (!ENABLE_PATTERN_BUTTON) return;
+  // Wire switch directly between GPIO3 and GND. INPUT_PULLUP means pressed=LOW.
+  pinMode(PATTERN_BUTTON_PIN, INPUT_PULLUP);
+  buttonRawState = digitalRead(PATTERN_BUTTON_PIN);
+  buttonStableState = buttonRawState;
+}
+
+void updatePatternButton() {
+  if (!ENABLE_PATTERN_BUTTON) return;
+
+  const uint32_t now = millis();
+  const bool reading = digitalRead(PATTERN_BUTTON_PIN);
+  if (reading != buttonRawState) {
+    buttonRawState = reading;
+    buttonLastChangeAt = now;
+  }
+
+  if ((now - buttonLastChangeAt) < BUTTON_DEBOUNCE_MS || buttonStableState == buttonRawState) return;
+  buttonStableState = buttonRawState;
+
+  // Act only on the stable press edge, not when the switch is released.
+  if (buttonStableState == LOW) {
+    cyclePattern = (Pattern)((cyclePattern + 1) % PATTERN_COUNT);
+    patternStartedAt = now;
+  }
 }
 
 // ---------- Coordinate mapper ----------
@@ -1078,6 +1121,7 @@ void setup() {
   FastLED.setBrightness(BRIGHTNESS);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
   randomSeed(analogRead(A0));
+  setupPatternButton();
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
 }
@@ -1087,6 +1131,8 @@ void loop() {
     renderMappingMarkers();
     return;
   }
+
+  updatePatternButton();
 
   const float t = millis() * 0.001f;
   const float ax = 0.83f * t;

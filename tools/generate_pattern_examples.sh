@@ -71,14 +71,42 @@ create_example 26 Spirals             PATTERN_SPIRALS         "Twin rotating 3-D
 create_example 27 PointBouncer        PATTERN_POINT_BOUNCER   "Single-point 3-D bouncer."
 create_example 28 WrappingComets      PATTERN_WRAPPING_COMETS "Multiple wrapping 3-D comets."
 
+BUTTON_PATH="$PATTERNS/29_ESP32C3_NextPatternButton"
+mkdir -p "$BUTTON_PATH"
+cat > "$BUTTON_PATH/29_ESP32C3_NextPatternButton.ino" <<'EOF'
+/*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
+  SkeletonCube Patterns — ESP32-C3 SuperMini next-pattern button controller
+  Created by Dad (MysterEon) & Manus, 2026.
+
+  Wiring: GPIO3 ---- momentary push button ---- GND
+*/
+
+#define SKELETONCUBE_AUTO_CYCLE 0
+#define SKELETONCUBE_PATTERN_BUTTON 1
+#include "../../SkeletonCubePatterns/SkeletonCubePatterns.ino"
+EOF
+cat > "$BUTTON_PATH/README.md" <<'EOF'
+# ESP32-C3 SuperMini next-pattern button
+
+Wire a momentary switch from **GPIO3** to **GND**. The master sketch uses
+`INPUT_PULLUP`, so no external pull-up resistor is required. A stable press
+advances to the next effect; auto-cycling is disabled in this wrapper.
+
+Avoid GPIO2, GPIO8, and GPIO9, which are ESP32-C3 boot strapping pins. See the
+full repository README and the ESP32-C3 GPIO documentation for further notes.
+EOF
+
 cat > "$PATTERNS/README.md" <<'EOF'
 # Pattern reference sketches
 
-Every folder here exposes one effect as an individual Arduino sketch. Each is a
-small wrapper that disables automatic cycling, selects exactly one `Pattern`,
-and includes the shared `SkeletonCubePatterns.ino` source. This avoids 28
-copied implementations drifting apart while still providing direct, uploadable
-pattern entry points for exploration and reference.
+Every folder here exposes one effect as an individual Arduino sketch. The first
+28 are small wrappers that disable automatic cycling, select exactly one
+`Pattern`, and include the shared `SkeletonCubePatterns.ino` source. The final
+folder is an ESP32-C3 SuperMini momentary-button controller. This avoids copied
+implementations drifting apart while still providing direct, uploadable pattern
+entry points for exploration and reference.
 
 Download or clone the whole repository before opening an example, because the
 wrapper uses a relative include path to the shared master sketch.

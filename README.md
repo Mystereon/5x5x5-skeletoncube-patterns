@@ -47,11 +47,12 @@ The master sketch contains a sequence of **28 effects**. Each receives a deliber
 SkeletonCubePatterns/                 # The self-playing master Arduino sketch
   SkeletonCubePatterns.ino
   CubeTypes.h
-patterns/                             # 28 individual fixed-pattern Arduino entry points
+patterns/                             # 28 fixed-pattern sketches plus an ESP32-C3 controller
   01_RedVectorCube/
   02_SolidCube/
   ...
   28_WrappingComets/
+  29_ESP32C3_NextPatternButton/
 tools/generate_pattern_examples.sh    # Rebuilds the reference-wrapper folders
 ```
 
@@ -138,6 +139,18 @@ void renderCentreMarker() {
 
 Use `millis()` timestamps rather than `delay()` for moving effects. This keeps the pattern gallery fluid, allows trails where wanted, and makes an effect easy to use both in the cycle and as a reference sketch.
 
+## ESP32-C3 SuperMini manual next-pattern button
+
+For a physical one-button version on an **ESP32-C3 SuperMini**, use **GPIO3** and wire the momentary switch directly between GPIO3 and GND:
+
+```text
+GPIO3 ────[ momentary push button ]──── GND
+```
+
+Open [`patterns/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino`](patterns/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino). This variant disables automatic cycling and advances one pattern on each debounced press. It uses the internal pull-up, so no external resistor is needed. The full wiring and pin-selection rationale are in its [reference note](patterns/29_ESP32C3_NextPatternButton/README.md).
+
+GPIO3 is a normal GPIO on the ESP32-C3. Avoid GPIO2, GPIO8, and GPIO9 for this switch because they are boot-strapping pins; avoid GPIO12–GPIO17, which are normally used by SPI flash; and leave GPIO18–GPIO19 available if you rely on USB-JTAG.[2] [3]
+
 ## Electrical notes
 
 Use a 5 V supply sized for the LED load and connect its ground to Arduino ground. FastLED includes a software power-management function; this sketch conservatively sets it to 1.5 A:
@@ -159,3 +172,5 @@ Released under the [MIT License](LICENSE). Keep the Dad & Manus origin credit in
 ## Reference
 
 [1]: https://github.com/FastLED/FastLED/blob/master/cookbook/core-concepts/power.md "FastLED power considerations"
+[2]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/peripherals/gpio.html "Espressif ESP32-C3 GPIO summary"
+[3]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c3/schematic-checklist.html#strapping-pins "Espressif ESP32-C3 strapping-pin guidance"
