@@ -98,13 +98,40 @@ Avoid GPIO2, GPIO8, and GPIO9, which are ESP32-C3 boot strapping pins. See the
 full repository README and the ESP32-C3 GPIO documentation for further notes.
 EOF
 
+DUAL_BUTTON_PATH="$PATTERNS/30_ESP32C3_DualButtonController"
+mkdir -p "$DUAL_BUTTON_PATH"
+cat > "$DUAL_BUTTON_PATH/30_ESP32C3_DualButtonController.ino" <<'EOF'
+/*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
+  SkeletonCube Patterns — ESP32-C3 SuperMini dual-button controller
+  Created by Dad (MysterEon) & Manus, 2026.
+
+  GPIO3 ---- [ NEXT ] ---- GND
+  GPIO4 ---- [ AUTO / MANUAL ] ---- GND
+*/
+
+#define SKELETONCUBE_AUTO_CYCLE 1
+#define SKELETONCUBE_PATTERN_BUTTON 1
+#define SKELETONCUBE_MODE_BUTTON 1
+#include "../../SkeletonCubePatterns/SkeletonCubePatterns.ino"
+EOF
+cat > "$DUAL_BUTTON_PATH/README.md" <<'EOF'
+# ESP32-C3 SuperMini dual-button controller
+
+Wire momentary switches from **GPIO3** and **GPIO4** to GND. GPIO3 advances a
+pattern in manual mode; GPIO4 toggles auto/manual mode. Both pins use
+`INPUT_PULLUP`. GPIO4 is deliberately used rather than boot-strapping GPIO9.
+EOF
+
 cat > "$PATTERNS/README.md" <<'EOF'
 # Pattern reference sketches
 
 Every folder here exposes one effect as an individual Arduino sketch. The first
 28 are small wrappers that disable automatic cycling, select exactly one
-`Pattern`, and include the shared `SkeletonCubePatterns.ino` source. The final
-folder is an ESP32-C3 SuperMini momentary-button controller. This avoids copied
+`Pattern`, and include the shared `SkeletonCubePatterns.ino` source. Folder 29
+is an ESP32-C3 SuperMini single-button controller, and folder 30 is a dual-button
+GPIO3/GPIO4 auto/manual controller. This avoids copied
 implementations drifting apart while still providing direct, uploadable pattern
 entry points for exploration and reference.
 

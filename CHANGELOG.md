@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.2.3 — ESP32-C3 dual-button controller
+
+This update adds a dual-button ESP32-C3 SuperMini controller. **GPIO3** steps to the next pattern in manual mode, while **GPIO4** safely toggles automatic and manual playback. GPIO4 replaces the proposed GPIO9 mode switch because GPIO9 is a boot strapping pin.
+
 ## v0.2.2 — ESP32-C3 next-pattern button
 
 This update adds a debounced one-button manual pattern selector for the ESP32-C3 SuperMini. The new reference sketch uses **GPIO3** configured as `INPUT_PULLUP`; wire a momentary switch from GPIO3 to GND. Each stable press advances one pattern and disables automatic cycling. GPIO2, GPIO8, and GPIO9 are deliberately avoided because they are ESP32-C3 boot strapping pins.

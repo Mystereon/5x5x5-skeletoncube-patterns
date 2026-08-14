@@ -53,6 +53,7 @@ patterns/                             # 28 fixed-pattern sketches plus an ESP32-
   ...
   28_WrappingComets/
   29_ESP32C3_NextPatternButton/
+  30_ESP32C3_DualButtonController/
 tools/generate_pattern_examples.sh    # Rebuilds the reference-wrapper folders
 ```
 
@@ -139,7 +140,7 @@ void renderCentreMarker() {
 
 Use `millis()` timestamps rather than `delay()` for moving effects. This keeps the pattern gallery fluid, allows trails where wanted, and makes an effect easy to use both in the cycle and as a reference sketch.
 
-## ESP32-C3 SuperMini manual next-pattern button
+## ESP32-C3 SuperMini button controllers
 
 For a physical one-button version on an **ESP32-C3 SuperMini**, use **GPIO3** and wire the momentary switch directly between GPIO3 and GND:
 
@@ -150,6 +151,17 @@ GPIO3 ────[ momentary push button ]──── GND
 Open [`patterns/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino`](patterns/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino). This variant disables automatic cycling and advances one pattern on each debounced press. It uses the internal pull-up, so no external resistor is needed. The full wiring and pin-selection rationale are in its [reference note](patterns/29_ESP32C3_NextPatternButton/README.md).
 
 GPIO3 is a normal GPIO on the ESP32-C3. Avoid GPIO2, GPIO8, and GPIO9 for this switch because they are boot-strapping pins; avoid GPIO12–GPIO17, which are normally used by SPI flash; and leave GPIO18–GPIO19 available if you rely on USB-JTAG.[2] [3]
+
+### Dual-button auto/manual controller
+
+Use the second controller when you want both long automatic playback and hands-on browsing:
+
+```text
+GPIO3 ────[ NEXT ]─────────── GND
+GPIO4 ────[ AUTO / MANUAL ]── GND
+```
+
+Open [`patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino`](patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino). The cube starts in **auto** mode. Press GPIO4 to pause the current pattern and enter **manual** mode; then press GPIO3 to advance one pattern at a time. Press GPIO4 again to restart **auto** playback from the pattern currently on display. GPIO4 is deliberately chosen instead of GPIO9 so a held button cannot alter ESP32-C3 boot strapping.[2] [3]
 
 ## Electrical notes
 

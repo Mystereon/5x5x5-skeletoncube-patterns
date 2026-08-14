@@ -56,9 +56,15 @@ const bool SHOW_MAPPING_MARKERS = false;
 #ifndef SKELETONCUBE_PATTERN_BUTTON
   #define SKELETONCUBE_PATTERN_BUTTON 0
 #endif
+#ifndef SKELETONCUBE_MODE_BUTTON
+  #define SKELETONCUBE_MODE_BUTTON 0
+#endif
 const bool AUTO_CYCLE_PATTERNS = SKELETONCUBE_AUTO_CYCLE;
 const Pattern FIXED_PATTERN = (Pattern)SKELETONCUBE_FIXED_PATTERN;
 const bool ENABLE_PATTERN_BUTTON = SKELETONCUBE_PATTERN_BUTTON;
+const bool ENABLE_MODE_BUTTON = SKELETONCUBE_MODE_BUTTON;
+// Can be changed at runtime by the optional GPIO4 button.
+bool autoCycleMode = AUTO_CYCLE_PATTERNS;
 
 // Each effect gets enough time to be read as a little scene rather than a flash.
 // All durations are at least twice the original 10-second dwell.
@@ -100,9 +106,9 @@ Pattern cyclePattern = PATTERN_WIREFRAME_CUBE;
 uint32_t patternStartedAt = 0;
 
 Pattern activePattern() {
-  // In button mode, cyclePattern is advanced only by a debounced press.
-  if (ENABLE_PATTERN_BUTTON) return cyclePattern;
-  if (!AUTO_CYCLE_PATTERNS) return FIXED_PATTERN;
+  // In manual button mode, cyclePattern is advanced only by a debounced press.
+  if (ENABLE_PATTERN_BUTTON && !autoCycleMode) return cyclePattern;
+  if (!autoCycleMode) return FIXED_PATTERN;
 
   const uint32_t now = millis();
   if (now - patternStartedAt >= dwellForPattern(cyclePattern)) {
@@ -116,10 +122,14 @@ Pattern activePattern() {
 // ESP32-C3 SuperMini recommendation: GPIO3. It is a normal GPIO, unlike
 // GPIO2/GPIO8/GPIO9 (boot strapping pins), and avoids GPIO18/GPIO19 USB-JTAG.
 constexpr uint8_t PATTERN_BUTTON_PIN = 3;
+constexpr uint8_t MODE_BUTTON_PIN = 4;  // Normal GPIO; safer than strapping GPIO9.
 constexpr uint16_t BUTTON_DEBOUNCE_MS = 35;
 bool buttonRawState = HIGH;
 bool buttonStableState = HIGH;
 uint32_t buttonLastChangeAt = 0;
+bool modeButtonRawState = HIGH;
+bool modeButtonStableState = HIGH;
+uint32_t modeButtonLastChangeAt = 0;
 
 void setupPatternButton() {
   if (!ENABLE_PATTERN_BUTTON) return;
@@ -130,7 +140,9 @@ void setupPatternButton() {
 }
 
 void updatePatternButton() {
-  if (!ENABLE_PATTERN_BUTTON) return;
+  // GPIO3 is meaningful only in manual mode. It is intentionally ignored
+  // while the gallery is auto-cycling.
+  if (!ENABLE_PATTERN_BUTTON || autoCycleMode) return;
 
   const uint32_t now = millis();
   const bool reading = digitalRead(PATTERN_BUTTON_PIN);
@@ -145,6 +157,35 @@ void updatePatternButton() {
   // Act only on the stable press edge, not when the switch is released.
   if (buttonStableState == LOW) {
     cyclePattern = (Pattern)((cyclePattern + 1) % PATTERN_COUNT);
+    patternStartedAt = now;
+  }
+}
+
+void setupModeButton() {
+  if (!ENABLE_MODE_BUTTON) return;
+  // Wire the GPIO4 momentary switch to GND. INPUT_PULLUP means pressed=LOW.
+  pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+  modeButtonRawState = digitalRead(MODE_BUTTON_PIN);
+  modeButtonStableState = modeButtonRawState;
+}
+
+void updateModeButton() {
+  if (!ENABLE_MODE_BUTTON) return;
+
+  const uint32_t now = millis();
+  const bool reading = digitalRead(MODE_BUTTON_PIN);
+  if (reading != modeButtonRawState) {
+    modeButtonRawState = reading;
+    modeButtonLastChangeAt = now;
+  }
+
+  if ((now - modeButtonLastChangeAt) < BUTTON_DEBOUNCE_MS || modeButtonStableState == modeButtonRawState) return;
+  modeButtonStableState = modeButtonRawState;
+
+  // Pressing GPIO4 toggles auto-cycle/manual mode. The visible pattern stays
+  // selected; returning to auto restarts that pattern's dwell interval.
+  if (modeButtonStableState == LOW) {
+    autoCycleMode = !autoCycleMode;
     patternStartedAt = now;
   }
 }
@@ -1122,6 +1163,7 @@ void setup() {
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
   randomSeed(analogRead(A0));
   setupPatternButton();
+  setupModeButton();
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
 }
@@ -1132,6 +1174,7 @@ void loop() {
     return;
   }
 
+  updateModeButton();
   updatePatternButton();
 
   const float t = millis() * 0.001f;
