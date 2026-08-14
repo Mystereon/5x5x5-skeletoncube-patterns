@@ -345,6 +345,8 @@ constexpr uint8_t BANNER_TEXT_MAX = 60;
 char bannerText[BANNER_TEXT_MAX + 1] = "CUBE 4 3 2 1 0";
 uint8_t bannerHue = 96;          // 0..255 FastLED hue wheel, default electric green
 uint8_t bannerScrollSpeed = 150; // 1 slow .. 255 fast
+enum BannerFont : uint8_t { BANNER_FONT_3X5 = 3, BANNER_FONT_5X5 = 5 };
+BannerFont bannerFont = BANNER_FONT_3X5;
 uint16_t bannerOffset = 0;
 uint32_t lastBannerStepAt = 0;
 
@@ -366,16 +368,47 @@ const uint8_t FONT_3X5[][5] = {
 static_assert(sizeof(FONT_3X5) / sizeof(FONT_3X5[0]) == sizeof(FONT_CHARACTERS) - 1,
               "Each 3x5 banner character needs exactly one glyph");
 
+// A true 5×5 bitmap font for the bold full-face option.
+const uint8_t FONT_5X5[][5] = {
+  {0,0,0,0,0},
+  {14,17,31,17,17}, {30,17,30,17,30}, {14,17,16,17,14}, {30,17,17,17,30}, {31,16,30,16,31},
+  {31,16,30,16,16}, {14,16,23,17,14}, {17,17,31,17,17}, {31,4,4,4,31}, {1,1,1,17,14},
+  {17,18,28,18,17}, {16,16,16,16,31}, {17,27,21,17,17}, {17,25,21,19,17}, {14,17,17,17,14},
+  {30,17,30,16,16}, {14,17,17,19,15}, {30,17,30,18,17}, {15,16,14,1,30}, {31,4,4,4,4},
+  {17,17,17,17,14}, {17,17,17,10,4}, {17,17,21,27,17}, {17,10,4,10,17}, {17,10,4,4,4},
+  {31,2,4,8,31},
+  {14,19,21,25,14}, {4,12,4,4,14}, {14,17,2,4,31}, {30,1,14,1,30}, {18,18,31,2,2},
+  {31,16,30,1,30}, {14,16,30,17,14}, {31,1,2,4,4}, {14,17,14,17,14}, {14,17,15,1,14},
+  {0,0,0,0,4}, {0,0,31,0,0}, {0,4,0,4,0}, {4,4,4,0,4}, {14,1,6,0,4}
+};
+static_assert(sizeof(FONT_5X5) / sizeof(FONT_5X5[0]) == sizeof(FONT_CHARACTERS) - 1,
+              "Each 5x5 banner character needs exactly one glyph");
+
 uint8_t glyphIndex(char character) {
   character = toupper(static_cast<unsigned char>(character));
   const char *found = strchr(FONT_CHARACTERS, character);
   return found ? uint8_t(found - FONT_CHARACTERS) : 0;
 }
 
-bool glyphPixel(char character, uint8_t column, uint8_t row) {
+bool glyphPixel3x5(char character, uint8_t column, uint8_t row) {
   if (column >= 3 || row >= 5) return false;
   const uint8_t rowBits = FONT_3X5[glyphIndex(character)][row];
   return rowBits & (1 << (2 - column));
+}
+
+bool glyphPixel5x5(char character, uint8_t column, uint8_t row) {
+  if (column >= 5 || row >= 5) return false;
+  const uint8_t rowBits = FONT_5X5[glyphIndex(character)][row];
+  return rowBits & (1 << (4 - column));
+}
+
+uint8_t bannerGlyphWidth() {
+  return bannerFont == BANNER_FONT_5X5 ? 5 : 3;
+}
+
+bool bannerGlyphPixel(char character, uint8_t column, uint8_t row) {
+  return bannerFont == BANNER_FONT_5X5 ? glyphPixel5x5(character, column, row)
+                                       : glyphPixel3x5(character, column, row);
 }
 
 void setPerimeterVoxel(uint8_t p, uint8_t z, const CRGB &colour) {
@@ -401,7 +434,9 @@ void setBannerMessage(const String &source) {
 
 void renderBanner(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  const uint16_t textColumns = strlen(bannerText) * 4; // 3 glyph columns + 1 blank column
+  const uint8_t glyphWidth = bannerGlyphWidth();
+  const uint8_t glyphPitch = glyphWidth + 1; // one blank column between glyphs
+  const uint16_t textColumns = strlen(bannerText) * glyphPitch;
   if (textColumns == 0) return;
 
   const uint16_t stepMs = 430 - uint16_t(bannerScrollSpeed) * 360 / 255;
@@ -412,12 +447,12 @@ void renderBanner(float t) {
 
   for (uint8_t p = 0; p < PERIMETER_COLUMNS; ++p) {
     const uint16_t messageColumn = (bannerOffset + p) % textColumns;
-    const uint8_t characterIndex = messageColumn / 4;
-    const uint8_t glyphColumn = messageColumn % 4;
-    if (glyphColumn == 3) continue; // inter-character spacer
+    const uint8_t characterIndex = messageColumn / glyphPitch;
+    const uint8_t glyphColumn = messageColumn % glyphPitch;
+    if (glyphColumn == glyphWidth) continue; // inter-character spacer
 
     for (uint8_t z = 0; z < N; ++z) {
-      if (!glyphPixel(bannerText[characterIndex], glyphColumn, N - 1 - z)) continue;
+      if (!bannerGlyphPixel(bannerText[characterIndex], glyphColumn, N - 1 - z)) continue;
       setPerimeterVoxel(p, z, CHSV(bannerHue + z * 4, 255, 255));
     }
   }
@@ -496,6 +531,7 @@ String stateJson() {
   body += ",\"banner\":\"" + String(bannerText) + "\"";
   body += ",\"bannerHue\":" + String(bannerHue);
   body += ",\"bannerSpeed\":" + String(bannerScrollSpeed);
+  body += ",\"bannerFont\":" + String(uint8_t(bannerFont));
   body += ",\"ip\":\"" + networkAddress + "\"";
   body += ",\"ap\":" + String(usingAccessPoint ? "true" : "false") + "}";
   return body;
@@ -527,7 +563,7 @@ select,input,button{font:inherit}select,input[type=text]{width:100%;padding:12px
 <div id="shell"><nav><button class="active" data-tab="live">01 LIVE</button><button data-tab="patterns">02 PATTERNS</button><button data-tab="control">03 CONTROL</button><button data-tab="about">04 ABOUT</button></nav><main>
 <section class="panel active" id="live"><div class="grid"><div class="box"><h2>NOW PLAYING</h2><div class="status" id="name">—</div><div class="row"><span>MODE</span><b id="mode">—</b></div><div class="row"><span>BRIGHTNESS</span><b id="brightRead">—</b></div><div class="row"><span>SPEED</span><b id="speedRead">—</b></div><p class="note">The preview is a logical voxel view: red is the bottom–rear–left origin. It updates from the live cube framebuffer.</p><div class="actions"><button class="action" onclick="next()">NEXT</button><button class="action dark" onclick="toggleAuto()" id="autoBtn">AUTO</button></div></div><div class="box"><h2>LIVE VOXEL PREVIEW</h2><canvas id="cube" width="500" height="420"></canvas></div></div></section>
 <section class="panel" id="patterns"><div class="box"><h2>PATTERN GALLERY</h2><select id="pattern" size="12"></select><p class="note">Select an effect to enter manual mode immediately. The physical GPIO4 button also advances patterns in manual mode.</p></div></section>
-<section class="panel" id="control"><div class="box"><h2>ENGINE CONTROL</h2><div class="control"><label>BRIGHTNESS <b id="bv">100</b></label><input id="brightness" type="range" min="1" max="255" value="100"></div><div class="control"><label>SPEED <b id="sv">150</b></label><input id="speed" type="range" min="1" max="255" value="150"></div><div class="control"><label>AUTO DWELL, SECONDS <b id="cv">30</b></label><input id="cycle" type="range" min="5" max="120" value="30"></div><div class="actions"><button class="action" onclick="applyControls()">APPLY</button><button class="action red" onclick="api('reseed=1')">RESEED LIFE</button></div></div><div class="box" style="margin-top:16px"><h2>3×5 PERIMETER BANNER</h2><div class="control"><label>MESSAGE</label><input id="bannerText" type="text" maxlength="60" value="CUBE 4 3 2 1 0"></div><div class="control"><label>COLOUR <b id="bhv">96</b></label><input id="bannerHue" type="range" min="0" max="255" value="96"></div><div class="control"><label>SCROLL SPEED <b id="bsv">150</b></label><input id="bannerSpeed" type="range" min="1" max="255" value="150"></div><div class="actions"><button class="action" onclick="applyBanner()">SEND TO CUBE</button><button class="action dark" onclick="api('pattern=11')">SHOW BANNER</button></div><p class="note">A 3×5 message scrolls clockwise around the rear, right, front, and left exterior faces. Supported: A–Z, 0–9, space, period, dash, colon, exclamation, and question mark.</p></div></section>
+<section class="panel" id="control"><div class="box"><h2>ENGINE CONTROL</h2><div class="control"><label>BRIGHTNESS <b id="bv">100</b></label><input id="brightness" type="range" min="1" max="255" value="100"></div><div class="control"><label>SPEED <b id="sv">150</b></label><input id="speed" type="range" min="1" max="255" value="150"></div><div class="control"><label>AUTO DWELL, SECONDS <b id="cv">30</b></label><input id="cycle" type="range" min="5" max="120" value="30"></div><div class="actions"><button class="action" onclick="applyControls()">APPLY</button><button class="action red" onclick="api('reseed=1')">RESEED LIFE</button></div></div><div class="box" style="margin-top:16px"><h2>3×5 PERIMETER BANNER</h2><div class="control"><label>MESSAGE</label><input id="bannerText" type="text" maxlength="60" value="CUBE 4 3 2 1 0"></div><div class="control"><label>FONT MODE</label><select id="bannerFont"><option value="3">3×5 / COMPACT</option><option value="5">5×5 / BOLD FULL-FACE</option></select></div><div class="control"><label>COLOUR <b id="bhv">96</b></label><input id="bannerHue" type="range" min="0" max="255" value="96"></div><div class="control"><label>SCROLL SPEED <b id="bsv">150</b></label><input id="bannerSpeed" type="range" min="1" max="255" value="150"></div><div class="actions"><button class="action" onclick="applyBanner()">SEND TO CUBE</button><button class="action dark" onclick="api('pattern=11')">SHOW BANNER</button></div><p class="note">Choose compact 3×5 or bold 5×5 full-face letters. The message scrolls clockwise around the rear, right, front, and left exterior faces. Supported: A–Z, 0–9, space, period, dash, colon, exclamation, and question mark.</p></div></section>
 <section class="panel" id="about"><div class="box"><h2>WHAT IS CUBE.FX?</h2><p>A cube-first browser controller inspired by the convenience of <a href="https://github.com/kitesurfer1404/WS2812FX" style="color:#c8ff20">WS2812FX</a>, but built for 3-D voxel patterns rather than flat LED strips.</p><p class="credit">FEED ME , I'M POOR AND I MADE THIS FOR FREE — https://paypal.me/Mystereon</p><p class="note">Created by Dad (MysterEon) &amp; Manus. GPIO4 is next-pattern in manual mode. GPIO8 toggles auto/manual; release GPIO8 while resetting because it is a C3 strapping pin.</p></div></section>
 </main></div><script>
 const names=['Red Vector Cube','3-D Matrix Rain','Neon Plasma','Volume Fire','Twin Spirals','Wrapping Comets','Self-playing Pong','Conway 3-D Life','Cloud Volume','White Glitter','Corner Cubes','3x5 Perimeter Banner'];
@@ -535,9 +571,9 @@ let state={}, frame=[];const $=id=>document.getElementById(id);const ctx=$('cube
 names.forEach((n,i)=>{let o=document.createElement('option');o.value=i;o.textContent=String(i+1).padStart(2,'0')+' / '+n;$('pattern').append(o)});
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')});
 $('pattern').onchange=()=>api('pattern='+$('pattern').value);['brightness','speed','cycle'].forEach(k=>$(k).oninput=()=>{$(k[0]+'v').textContent=$(k).value});$('bannerHue').oninput=()=>$('bhv').textContent=$('bannerHue').value;$('bannerSpeed').oninput=()=>$('bsv').textContent=$('bannerSpeed').value;
-function api(q){fetch('/api/control?'+q).then(refresh)}function next(){api('next=1')}function toggleAuto(){api('auto='+(state.auto?0:1))}function applyControls(){api('brightness='+$('brightness').value+'&speed='+$('speed').value+'&cycle='+$('cycle').value)}function applyBanner(){api('text='+encodeURIComponent($('bannerText').value)+'&bannerHue='+$('bannerHue').value+'&bannerSpeed='+$('bannerSpeed').value)}
+function api(q){fetch('/api/control?'+q).then(refresh)}function next(){api('next=1')}function toggleAuto(){api('auto='+(state.auto?0:1))}function applyControls(){api('brightness='+$('brightness').value+'&speed='+$('speed').value+'&cycle='+$('cycle').value)}function applyBanner(){api('text='+encodeURIComponent($('bannerText').value)+'&bannerFont='+$('bannerFont').value+'&bannerHue='+$('bannerHue').value+'&bannerSpeed='+$('bannerSpeed').value)}
 function draw(){const w=500,h=420;ctx.fillStyle='#020403';ctx.fillRect(0,0,w,h);const p=(x,y,z)=>[250+(x-y)*34,335-(x+y)*17-z*47];for(let z=0;z<5;z++)for(let y=0;y<5;y++)for(let x=0;x<5;x++){let [px,py]=p(x,y,z),col=frame[z*25+y*5+x]||'#000000';ctx.beginPath();ctx.fillStyle=col;ctx.arc(px,py,9,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#1c301d';ctx.stroke()}}
-function render(){if(!state.name)return;$('name').textContent=state.name;$('mode').textContent=state.auto?'AUTO':'MANUAL';$('brightRead').textContent=state.brightness;$('speedRead').textContent=state.speed;$('net').textContent=(state.ap?'AP @ ':'WIFI @ ')+state.ip;$('autoBtn').textContent=state.auto?'PAUSE AUTO':'RESUME AUTO';$('pattern').value=state.pattern;$('brightness').value=state.brightness;$('speed').value=state.speed;$('cycle').value=state.cycle;$('bannerHue').value=state.bannerHue;$('bannerSpeed').value=state.bannerSpeed;if(document.activeElement!==$('bannerText'))$('bannerText').value=state.banner;['brightness','speed','cycle'].forEach(k=>$(k[0]+'v').textContent=$(k).value);$('bhv').textContent=state.bannerHue;$('bsv').textContent=state.bannerSpeed;draw()}
+function render(){if(!state.name)return;$('name').textContent=state.name;$('mode').textContent=state.auto?'AUTO':'MANUAL';$('brightRead').textContent=state.brightness;$('speedRead').textContent=state.speed;$('net').textContent=(state.ap?'AP @ ':'WIFI @ ')+state.ip;$('autoBtn').textContent=state.auto?'PAUSE AUTO':'RESUME AUTO';$('pattern').value=state.pattern;$('brightness').value=state.brightness;$('speed').value=state.speed;$('cycle').value=state.cycle;$('bannerHue').value=state.bannerHue;$('bannerSpeed').value=state.bannerSpeed;$('bannerFont').value=state.bannerFont;if(document.activeElement!==$('bannerText'))$('bannerText').value=state.banner;['brightness','speed','cycle'].forEach(k=>$(k[0]+'v').textContent=$(k).value);$('bhv').textContent=state.bannerHue;$('bsv').textContent=state.bannerSpeed;draw()}
 function refresh(){Promise.all([fetch('/api/state').then(r=>r.json()),fetch('/api/frame').then(r=>r.json())]).then(a=>{state=a[0];frame=a[1].voxels;render()}).catch(()=>{$('net').textContent='RECONNECTING…'})}setInterval(refresh,650);refresh();
 </script></body></html>
 )HTML";
@@ -564,6 +600,10 @@ void handleControl() {
   if (web.hasArg("text")) setBannerMessage(web.arg("text"));
   if (web.hasArg("bannerHue")) bannerHue = constrain(web.arg("bannerHue").toInt(), 0, 255);
   if (web.hasArg("bannerSpeed")) bannerScrollSpeed = constrain(web.arg("bannerSpeed").toInt(), 1, 255);
+  if (web.hasArg("bannerFont")) {
+    bannerFont = web.arg("bannerFont").toInt() == 5 ? BANNER_FONT_5X5 : BANNER_FONT_3X5;
+    bannerOffset = 0;
+  }
   if (web.hasArg("auto")) { autoCycle = web.arg("auto").toInt() != 0; patternStartedAt = millis(); }
   if (web.hasArg("next")) { autoCycle = false; advancePattern(); }
   if (web.hasArg("reseed")) seedLife();

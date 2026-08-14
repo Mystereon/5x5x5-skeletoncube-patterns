@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.2 — CubeFXWeb true 5×5 banner font
+
+Added a selectable **5×5 / Bold full-face** bitmap font alongside the existing compact 3×5 option. CubeFXWeb now exposes the `bannerFont` API parameter and a browser font selector; it preserves message, hue, and independent scroll speed controls.
+
 ## v0.3.1 — CubeFXWeb 3×5 perimeter banner
 
 Added a configurable 3×5 bitmap-font text banner to CubeFXWeb. The new pattern scrolls around the rear, right, front, and left exterior faces through a continuous 16-column perimeter. It begins with the default message `CUBE 4 3 2 1 0`. The browser UI and HTTP API now expose the message, FastLED hue, and dedicated banner-speed controls.
