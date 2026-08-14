@@ -36,6 +36,8 @@
 #include <FastLED.h>
 #include <esp_system.h>
 #include <math.h>
+#include <ctype.h>
+#include <string.h>
 
 // -----------------------------------------------------------------------------
 // Wi-Fi setup
@@ -112,13 +114,14 @@ enum Pattern : uint8_t {
   PATTERN_CLOUDS,
   PATTERN_GLITTER,
   PATTERN_CORNER_CUBES,
+  PATTERN_BANNER,
   PATTERN_COUNT
 };
 
 const char *const patternNames[PATTERN_COUNT] = {
   "Red Vector Cube", "3-D Matrix Rain", "Neon Plasma", "Volume Fire",
   "Twin Spirals", "Wrapping Comets", "Self-playing Pong", "Conway 3-D Life",
-  "Cloud Volume", "White Glitter", "Corner Cubes"
+  "Cloud Volume", "White Glitter", "Corner Cubes", "3x5 Perimeter Banner"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -332,6 +335,94 @@ void renderCornerCubes(float t) {
   }
 }
 
+// -----------------------------------------------------------------------------
+// 3×5 scrolling text banner around the four vertical outer faces
+// -----------------------------------------------------------------------------
+// Perimeter positions travel clockwise when viewed from above. Corners appear
+// once only, giving a 16-column loop around the side of the 5×5×5 cube.
+constexpr uint8_t PERIMETER_COLUMNS = 16;
+constexpr uint8_t BANNER_TEXT_MAX = 60;
+char bannerText[BANNER_TEXT_MAX + 1] = "CUBE 4 3 2 1 0";
+uint8_t bannerHue = 96;          // 0..255 FastLED hue wheel, default electric green
+uint8_t bannerScrollSpeed = 150; // 1 slow .. 255 fast
+uint16_t bannerOffset = 0;
+uint32_t lastBannerStepAt = 0;
+
+const char FONT_CHARACTERS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-:!?";
+const uint8_t FONT_3X5[][5] = {
+  {0,0,0,0,0},                         // space
+  {2,5,7,5,5}, {6,5,6,5,6}, {3,4,4,4,3}, {6,5,5,5,6}, // A-E
+  {7,4,6,4,4}, {3,4,5,5,3}, {5,5,7,5,5}, {7,2,2,2,7}, // F-I
+  {1,1,1,5,2}, {5,5,6,5,5}, {4,4,4,4,7}, {5,7,7,5,5}, // J-M
+  {5,7,7,7,5}, {2,5,5,5,2}, {6,5,6,4,4}, {2,5,5,2,1}, // N-Q
+  {6,5,6,5,5}, {3,4,2,1,6}, {7,2,2,2,2}, {5,5,5,5,7}, // R-U
+  {5,5,5,5,2}, {5,5,7,7,5}, {5,5,2,5,5}, {5,5,2,2,2}, // V-Y
+  {7,1,2,4,7},                         // Z
+  {7,5,5,5,7}, {2,6,2,2,7}, {6,1,7,4,7}, {6,1,3,1,6}, // 0-3
+  {5,5,7,1,1}, {7,4,6,1,6}, {3,4,6,5,2}, {7,1,2,4,4}, // 4-7
+  {2,5,2,5,2}, {2,5,3,1,6},             // 8-9
+  {0,0,7,0,0}, {0,0,0,0,2}, {0,2,0,2,0}, {2,2,2,0,2}, {6,1,2,0,2} // punctuation
+};
+static_assert(sizeof(FONT_3X5) / sizeof(FONT_3X5[0]) == sizeof(FONT_CHARACTERS) - 1,
+              "Each 3x5 banner character needs exactly one glyph");
+
+uint8_t glyphIndex(char character) {
+  character = toupper(static_cast<unsigned char>(character));
+  const char *found = strchr(FONT_CHARACTERS, character);
+  return found ? uint8_t(found - FONT_CHARACTERS) : 0;
+}
+
+bool glyphPixel(char character, uint8_t column, uint8_t row) {
+  if (column >= 3 || row >= 5) return false;
+  const uint8_t rowBits = FONT_3X5[glyphIndex(character)][row];
+  return rowBits & (1 << (2 - column));
+}
+
+void setPerimeterVoxel(uint8_t p, uint8_t z, const CRGB &colour) {
+  p %= PERIMETER_COLUMNS;
+  if (p < 5) setVoxel(p, 0, z, colour);                 // rear: left -> right
+  else if (p < 9) setVoxel(4, p - 4, z, colour);         // right: rear -> front
+  else if (p < 13) setVoxel(12 - p, 4, z, colour);       // front: right -> left
+  else setVoxel(0, 16 - p, z, colour);                   // left: front -> rear
+}
+
+void setBannerMessage(const String &source) {
+  uint8_t written = 0;
+  for (uint16_t i = 0; i < source.length() && written < BANNER_TEXT_MAX; ++i) {
+    char character = toupper(static_cast<unsigned char>(source.charAt(i)));
+    // Unsupported characters become spaces, avoiding JSON/UI injection and
+    // guaranteeing every byte has a glyph representation.
+    bannerText[written++] = strchr(FONT_CHARACTERS, character) ? character : ' ';
+  }
+  if (written == 0) bannerText[written++] = ' ';
+  bannerText[written] = '\0';
+  bannerOffset = 0;
+}
+
+void renderBanner(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const uint16_t textColumns = strlen(bannerText) * 4; // 3 glyph columns + 1 blank column
+  if (textColumns == 0) return;
+
+  const uint16_t stepMs = 430 - uint16_t(bannerScrollSpeed) * 360 / 255;
+  if (millis() - lastBannerStepAt >= stepMs) {
+    lastBannerStepAt = millis();
+    bannerOffset = (bannerOffset + 1) % textColumns;
+  }
+
+  for (uint8_t p = 0; p < PERIMETER_COLUMNS; ++p) {
+    const uint16_t messageColumn = (bannerOffset + p) % textColumns;
+    const uint8_t characterIndex = messageColumn / 4;
+    const uint8_t glyphColumn = messageColumn % 4;
+    if (glyphColumn == 3) continue; // inter-character spacer
+
+    for (uint8_t z = 0; z < N; ++z) {
+      if (!glyphPixel(bannerText[characterIndex], glyphColumn, N - 1 - z)) continue;
+      setPerimeterVoxel(p, z, CHSV(bannerHue + z * 4, 255, 255));
+    }
+  }
+}
+
 void renderCurrentPattern() {
   const float t = effectTime();
   switch (currentPattern) {
@@ -346,6 +437,7 @@ void renderCurrentPattern() {
     case PATTERN_CLOUDS: renderClouds(t); break;
     case PATTERN_GLITTER: renderGlitter(t); break;
     case PATTERN_CORNER_CUBES: renderCornerCubes(t); break;
+    case PATTERN_BANNER: renderBanner(t); break;
     default: break;
   }
 }
@@ -401,6 +493,9 @@ String stateJson() {
   body += ",\"speed\":" + String(speedControl);
   body += ",\"auto\":" + String(autoCycle ? "true" : "false");
   body += ",\"cycle\":" + String(cycleDurationMs / 1000);
+  body += ",\"banner\":\"" + String(bannerText) + "\"";
+  body += ",\"bannerHue\":" + String(bannerHue);
+  body += ",\"bannerSpeed\":" + String(bannerScrollSpeed);
   body += ",\"ip\":\"" + networkAddress + "\"";
   body += ",\"ap\":" + String(usingAccessPoint ? "true" : "false") + "}";
   return body;
@@ -426,23 +521,23 @@ const char INDEX_HTML[] PROGMEM = R"HTML(
 *{box-sizing:border-box}body{margin:0;background:var(--ink);color:#eaffd2;font-family:ui-monospace,Menlo,monospace;min-height:100vh}
 header{border-bottom:3px solid var(--line);padding:16px 20px;display:flex;justify-content:space-between;gap:12px;background:#0b100d}h1{margin:0;font-size:clamp(22px,4vw,40px);letter-spacing:-2px}small{color:var(--muted)}
 #shell{display:grid;grid-template-columns:150px 1fr;min-height:calc(100vh - 78px)}nav{border-right:3px solid var(--line);padding:12px;background:#081009}nav button{width:100%;text-align:left;margin:0 0 8px;padding:10px;border:2px solid #426840;background:#101b12;color:#d9ffd1;font:inherit;cursor:pointer}nav button:hover,nav button.active{background:var(--acid);color:#061000;border-color:var(--acid)}main{padding:20px;max-width:1000px}.panel{display:none}.panel.active{display:block}.grid{display:grid;grid-template-columns:minmax(270px,1fr) minmax(270px,1fr);gap:16px}.box{border:2px solid #426840;background:var(--panel);padding:16px}.box h2{margin:0 0 12px;color:var(--line);font-size:16px}.status{font-size:20px;color:var(--acid);padding:8px 0}
-select,input,button{font:inherit}select{width:100%;padding:12px;background:#030603;color:var(--acid);border:2px solid var(--line)}input[type=range]{width:100%;accent-color:var(--acid)}.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #29412a}.row:last-child{border:0}.control{display:block;margin:14px 0}.control label{display:flex;justify-content:space-between;color:#c4ddbd;margin-bottom:6px}.action{padding:11px 13px;border:2px solid var(--line);background:var(--acid);color:#061000;font-weight:800;cursor:pointer}.action.dark{background:#0d170e;color:var(--line)}.action.red{border-color:var(--red);color:#ffd8d0;background:#28100d}.actions{display:flex;gap:8px;flex-wrap:wrap}canvas{width:100%;background:#020403;border:2px solid #426840;image-rendering:pixelated}.note{color:var(--muted);font-size:12px;line-height:1.5}.credit{border-left:3px solid var(--red);padding-left:10px;color:#ffd5cb;font-size:12px;line-height:1.4}
+select,input,button{font:inherit}select,input[type=text]{width:100%;padding:12px;background:#030603;color:var(--acid);border:2px solid var(--line)}input[type=range]{width:100%;accent-color:var(--acid)}.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #29412a}.row:last-child{border:0}.control{display:block;margin:14px 0}.control label{display:flex;justify-content:space-between;color:#c4ddbd;margin-bottom:6px}.action{padding:11px 13px;border:2px solid var(--line);background:var(--acid);color:#061000;font-weight:800;cursor:pointer}.action.dark{background:#0d170e;color:var(--line)}.action.red{border-color:var(--red);color:#ffd8d0;background:#28100d}.actions{display:flex;gap:8px;flex-wrap:wrap}canvas{width:100%;background:#020403;border:2px solid #426840;image-rendering:pixelated}.note{color:var(--muted);font-size:12px;line-height:1.5}.credit{border-left:3px solid var(--red);padding-left:10px;color:#ffd5cb;font-size:12px;line-height:1.4}
 @media(max-width:680px){#shell{grid-template-columns:1fr}nav{border-right:0;border-bottom:3px solid var(--line);display:flex;overflow:auto;padding:8px}nav button{width:auto;white-space:nowrap;margin:0 6px 0 0}.grid{grid-template-columns:1fr}main{padding:12px}}
 </style></head><body><header><div><h1>CUBE.FX</h1><small>5×5×5 / 125 VOXELS / ESP32-C3</small></div><div id="net">CONNECTING…</div></header>
 <div id="shell"><nav><button class="active" data-tab="live">01 LIVE</button><button data-tab="patterns">02 PATTERNS</button><button data-tab="control">03 CONTROL</button><button data-tab="about">04 ABOUT</button></nav><main>
 <section class="panel active" id="live"><div class="grid"><div class="box"><h2>NOW PLAYING</h2><div class="status" id="name">—</div><div class="row"><span>MODE</span><b id="mode">—</b></div><div class="row"><span>BRIGHTNESS</span><b id="brightRead">—</b></div><div class="row"><span>SPEED</span><b id="speedRead">—</b></div><p class="note">The preview is a logical voxel view: red is the bottom–rear–left origin. It updates from the live cube framebuffer.</p><div class="actions"><button class="action" onclick="next()">NEXT</button><button class="action dark" onclick="toggleAuto()" id="autoBtn">AUTO</button></div></div><div class="box"><h2>LIVE VOXEL PREVIEW</h2><canvas id="cube" width="500" height="420"></canvas></div></div></section>
-<section class="panel" id="patterns"><div class="box"><h2>PATTERN GALLERY</h2><select id="pattern" size="11"></select><p class="note">Select an effect to enter manual mode immediately. The physical GPIO4 button also advances patterns in manual mode.</p></div></section>
-<section class="panel" id="control"><div class="box"><h2>ENGINE CONTROL</h2><div class="control"><label>BRIGHTNESS <b id="bv">100</b></label><input id="brightness" type="range" min="1" max="255" value="100"></div><div class="control"><label>SPEED <b id="sv">150</b></label><input id="speed" type="range" min="1" max="255" value="150"></div><div class="control"><label>AUTO DWELL, SECONDS <b id="cv">30</b></label><input id="cycle" type="range" min="5" max="120" value="30"></div><div class="actions"><button class="action" onclick="applyControls()">APPLY</button><button class="action red" onclick="api('reseed=1')">RESEED LIFE</button></div></div></section>
+<section class="panel" id="patterns"><div class="box"><h2>PATTERN GALLERY</h2><select id="pattern" size="12"></select><p class="note">Select an effect to enter manual mode immediately. The physical GPIO4 button also advances patterns in manual mode.</p></div></section>
+<section class="panel" id="control"><div class="box"><h2>ENGINE CONTROL</h2><div class="control"><label>BRIGHTNESS <b id="bv">100</b></label><input id="brightness" type="range" min="1" max="255" value="100"></div><div class="control"><label>SPEED <b id="sv">150</b></label><input id="speed" type="range" min="1" max="255" value="150"></div><div class="control"><label>AUTO DWELL, SECONDS <b id="cv">30</b></label><input id="cycle" type="range" min="5" max="120" value="30"></div><div class="actions"><button class="action" onclick="applyControls()">APPLY</button><button class="action red" onclick="api('reseed=1')">RESEED LIFE</button></div></div><div class="box" style="margin-top:16px"><h2>3×5 PERIMETER BANNER</h2><div class="control"><label>MESSAGE</label><input id="bannerText" type="text" maxlength="60" value="CUBE 4 3 2 1 0"></div><div class="control"><label>COLOUR <b id="bhv">96</b></label><input id="bannerHue" type="range" min="0" max="255" value="96"></div><div class="control"><label>SCROLL SPEED <b id="bsv">150</b></label><input id="bannerSpeed" type="range" min="1" max="255" value="150"></div><div class="actions"><button class="action" onclick="applyBanner()">SEND TO CUBE</button><button class="action dark" onclick="api('pattern=11')">SHOW BANNER</button></div><p class="note">A 3×5 message scrolls clockwise around the rear, right, front, and left exterior faces. Supported: A–Z, 0–9, space, period, dash, colon, exclamation, and question mark.</p></div></section>
 <section class="panel" id="about"><div class="box"><h2>WHAT IS CUBE.FX?</h2><p>A cube-first browser controller inspired by the convenience of <a href="https://github.com/kitesurfer1404/WS2812FX" style="color:#c8ff20">WS2812FX</a>, but built for 3-D voxel patterns rather than flat LED strips.</p><p class="credit">FEED ME , I'M POOR AND I MADE THIS FOR FREE — https://paypal.me/Mystereon</p><p class="note">Created by Dad (MysterEon) &amp; Manus. GPIO4 is next-pattern in manual mode. GPIO8 toggles auto/manual; release GPIO8 while resetting because it is a C3 strapping pin.</p></div></section>
 </main></div><script>
-const names=['Red Vector Cube','3-D Matrix Rain','Neon Plasma','Volume Fire','Twin Spirals','Wrapping Comets','Self-playing Pong','Conway 3-D Life','Cloud Volume','White Glitter','Corner Cubes'];
+const names=['Red Vector Cube','3-D Matrix Rain','Neon Plasma','Volume Fire','Twin Spirals','Wrapping Comets','Self-playing Pong','Conway 3-D Life','Cloud Volume','White Glitter','Corner Cubes','3x5 Perimeter Banner'];
 let state={}, frame=[];const $=id=>document.getElementById(id);const ctx=$('cube').getContext('2d');
 names.forEach((n,i)=>{let o=document.createElement('option');o.value=i;o.textContent=String(i+1).padStart(2,'0')+' / '+n;$('pattern').append(o)});
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')});
-$('pattern').onchange=()=>api('pattern='+$('pattern').value);['brightness','speed','cycle'].forEach(k=>$(k).oninput=()=>{$(k[0]+'v').textContent=$(k).value});
-function api(q){fetch('/api/control?'+q).then(refresh)}function next(){api('next=1')}function toggleAuto(){api('auto='+(state.auto?0:1))}function applyControls(){api('brightness='+$('brightness').value+'&speed='+$('speed').value+'&cycle='+$('cycle').value)}
+$('pattern').onchange=()=>api('pattern='+$('pattern').value);['brightness','speed','cycle'].forEach(k=>$(k).oninput=()=>{$(k[0]+'v').textContent=$(k).value});$('bannerHue').oninput=()=>$('bhv').textContent=$('bannerHue').value;$('bannerSpeed').oninput=()=>$('bsv').textContent=$('bannerSpeed').value;
+function api(q){fetch('/api/control?'+q).then(refresh)}function next(){api('next=1')}function toggleAuto(){api('auto='+(state.auto?0:1))}function applyControls(){api('brightness='+$('brightness').value+'&speed='+$('speed').value+'&cycle='+$('cycle').value)}function applyBanner(){api('text='+encodeURIComponent($('bannerText').value)+'&bannerHue='+$('bannerHue').value+'&bannerSpeed='+$('bannerSpeed').value)}
 function draw(){const w=500,h=420;ctx.fillStyle='#020403';ctx.fillRect(0,0,w,h);const p=(x,y,z)=>[250+(x-y)*34,335-(x+y)*17-z*47];for(let z=0;z<5;z++)for(let y=0;y<5;y++)for(let x=0;x<5;x++){let [px,py]=p(x,y,z),col=frame[z*25+y*5+x]||'#000000';ctx.beginPath();ctx.fillStyle=col;ctx.arc(px,py,9,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#1c301d';ctx.stroke()}}
-function render(){if(!state.name)return;$('name').textContent=state.name;$('mode').textContent=state.auto?'AUTO':'MANUAL';$('brightRead').textContent=state.brightness;$('speedRead').textContent=state.speed;$('net').textContent=(state.ap?'AP @ ':'WIFI @ ')+state.ip;$('autoBtn').textContent=state.auto?'PAUSE AUTO':'RESUME AUTO';$('pattern').value=state.pattern;$('brightness').value=state.brightness;$('speed').value=state.speed;$('cycle').value=state.cycle;['brightness','speed','cycle'].forEach(k=>$(k[0]+'v').textContent=$(k).value);draw()}
+function render(){if(!state.name)return;$('name').textContent=state.name;$('mode').textContent=state.auto?'AUTO':'MANUAL';$('brightRead').textContent=state.brightness;$('speedRead').textContent=state.speed;$('net').textContent=(state.ap?'AP @ ':'WIFI @ ')+state.ip;$('autoBtn').textContent=state.auto?'PAUSE AUTO':'RESUME AUTO';$('pattern').value=state.pattern;$('brightness').value=state.brightness;$('speed').value=state.speed;$('cycle').value=state.cycle;$('bannerHue').value=state.bannerHue;$('bannerSpeed').value=state.bannerSpeed;if(document.activeElement!==$('bannerText'))$('bannerText').value=state.banner;['brightness','speed','cycle'].forEach(k=>$(k[0]+'v').textContent=$(k).value);$('bhv').textContent=state.bannerHue;$('bsv').textContent=state.bannerSpeed;draw()}
 function refresh(){Promise.all([fetch('/api/state').then(r=>r.json()),fetch('/api/frame').then(r=>r.json())]).then(a=>{state=a[0];frame=a[1].voxels;render()}).catch(()=>{$('net').textContent='RECONNECTING…'})}setInterval(refresh,650);refresh();
 </script></body></html>
 )HTML";
@@ -466,6 +561,9 @@ void handleControl() {
   }
   if (web.hasArg("speed")) speedControl = constrain(web.arg("speed").toInt(), 1, 255);
   if (web.hasArg("cycle")) cycleDurationMs = constrain(web.arg("cycle").toInt(), 5, 120) * 1000UL;
+  if (web.hasArg("text")) setBannerMessage(web.arg("text"));
+  if (web.hasArg("bannerHue")) bannerHue = constrain(web.arg("bannerHue").toInt(), 0, 255);
+  if (web.hasArg("bannerSpeed")) bannerScrollSpeed = constrain(web.arg("bannerSpeed").toInt(), 1, 255);
   if (web.hasArg("auto")) { autoCycle = web.arg("auto").toInt() != 0; patternStartedAt = millis(); }
   if (web.hasArg("next")) { autoCycle = false; advancePattern(); }
   if (web.hasArg("reseed")) seedLife();

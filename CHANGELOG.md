@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.1 — CubeFXWeb 3×5 perimeter banner
+
+Added a configurable 3×5 bitmap-font text banner to CubeFXWeb. The new pattern scrolls around the rear, right, front, and left exterior faces through a continuous 16-column perimeter. It begins with the default message `CUBE 4 3 2 1 0`. The browser UI and HTTP API now expose the message, FastLED hue, and dedicated banner-speed controls.
+
 ## v0.3.0 — CubeFXWeb browser controller
 
 Added `standalone/CubeFXWeb/CubeFXWeb.ino`: an ESP32-C3 local Wi-Fi browser controller inspired by WS2812FX. It serves a cube-aware side-tab interface with a live isometric voxel preview, 11 3-D patterns, brightness/speed/dwell controls, auto/manual playback, a simple HTTP API, and GPIO4/GPIO8 hardware control.

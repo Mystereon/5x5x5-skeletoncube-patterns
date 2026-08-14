@@ -8,8 +8,8 @@ The firmware has no cloud dependency and uses only FastLED plus the Arduino-ESP3
 
 | Area | Included |
 |---|---|
-| Pattern gallery | 11 cube-aware effects: vector cube, Matrix rain, plasma, fire, spirals, comets, Pong, 3-D Life, clouds, glitter, and corner cubes. |
-| Browser controls | Pattern selection, brightness, speed, automatic dwell time, auto/manual switch, next pattern, and 3-D Life reseed. |
+| Pattern gallery | 12 cube-aware effects: vector cube, Matrix rain, plasma, fire, spirals, comets, Pong, 3-D Life, clouds, glitter, corner cubes, and a 3×5 perimeter banner. |
+| Browser controls | Pattern selection, brightness, speed, automatic dwell time, auto/manual switch, next pattern, 3-D Life reseed, and banner text/colour/scroll-speed controls. |
 | Networking | Access-point mode by default; optional connection to an existing Wi-Fi network. |
 | Physical controls | GPIO4 advances a pattern in manual mode; GPIO8 toggles auto/manual. |
 | Rendering | Non-blocking `millis()` scheduling; no frame delay. |
@@ -54,6 +54,19 @@ CubeFXWeb tries home Wi-Fi for 12 seconds. If it cannot join, it deliberately fa
 
 The cube is powered separately at 5 V. Connect the LED supply ground to ESP32-C3 ground. The firmware calls FastLED's power-management limiter at 5 V and 1.5 A; review the supply, wires, and connector ratings before increasing it. FastLED’s common full-white planning estimate is 60 mA per pixel, which would be 7.5 A for 125 pixels.[2]
 
+## 3×5 perimeter banner
+
+The **3×5 Perimeter Banner** pattern renders bitmap text across the cube’s five vertical voxels and scrolls it continuously around the **four outside faces**. Its 16-column ring path follows the rear, right, front, and left sides clockwise when viewed from above. Corners are assigned only once, so the text remains continuous as it turns each corner.
+
+Open **Control → 3×5 Perimeter Banner** in the browser UI to set the message, hue, and dedicated scroll speed; then select **Show Banner**. The firmware starts with the message **`CUBE 4 3 2 1 0`**. It accepts up to 60 characters and supports uppercase `A–Z`, digits `0–9`, spaces, period, dash, colon, exclamation mark, and question mark. Unsupported characters are safely converted to spaces.
+
+| API request | Example | Result |
+|---|---|---|
+| Set message | `/api/control?text=HELLO%20CUBE` | Changes the banner message and resets it to the beginning. |
+| Set colour | `/api/control?bannerHue=160` | Changes the FastLED hue, `0–255`. |
+| Set banner speed | `/api/control?bannerSpeed=210` | Sets independent scroll speed, `1–255`. |
+| Show it | `/api/control?pattern=11` | Selects the banner and enters manual mode. |
+
 ## Physical buttons
 
 ```text
@@ -78,6 +91,7 @@ The interface is deliberately simple, which also makes it easy to build physical
 | `/api/control` | `/api/control?auto=1` | Start automatic cycling. |
 | `/api/control` | `/api/control?next=1` | Enter manual mode and advance one pattern. |
 | `/api/control` | `/api/control?reseed=1` | Seed a fresh 3-D Life world. |
+| `/api/control` | `/api/control?text=HELLO%20CUBE&bannerHue=96&bannerSpeed=150` | Set the 3×5 banner message, colour, and scroll speed. |
 
 ## Credits
 
