@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Animated 3-D neon plasma field.
   Created by Dad (MysterEon) & Manus, 2026.
 

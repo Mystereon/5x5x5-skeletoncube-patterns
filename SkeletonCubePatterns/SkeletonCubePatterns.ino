@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — 5 x 5 x 5 WS2812B self-playing FastLED library
 
   Created by Dad (MysterEon) & Manus, 2026.

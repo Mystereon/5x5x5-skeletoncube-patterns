@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Rotating red 3×3×3 vector wireframe cube.
   Created by Dad (MysterEon) & Manus, 2026.
 

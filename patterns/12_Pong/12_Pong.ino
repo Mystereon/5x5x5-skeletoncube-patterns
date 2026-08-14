@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Self-playing 3-D Pong with tracking paddles.
   Created by Dad (MysterEon) & Manus, 2026.
 

@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Independently timed 2×2×2 bouncing block.
   Created by Dad (MysterEon) & Manus, 2026.
 

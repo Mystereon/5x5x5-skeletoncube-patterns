@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Dense upward red rain with a fast fade.
   Created by Dad (MysterEon) & Manus, 2026.
 

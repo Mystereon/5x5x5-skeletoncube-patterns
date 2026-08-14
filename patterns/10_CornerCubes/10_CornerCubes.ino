@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Eight colour-shifting 2×2×2 corner cubes.
   Created by Dad (MysterEon) & Manus, 2026.
 

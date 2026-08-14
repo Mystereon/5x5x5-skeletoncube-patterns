@@ -16,6 +16,8 @@ create_example() {
 
   cat > "$path/${number}_${folder}.ino" <<EOF
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — ${description}
   Created by Dad (MysterEon) & Manus, 2026.
 

@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — 3-D blinking eye with moving pupil.
   Created by Dad (MysterEon) & Manus, 2026.
 

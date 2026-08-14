@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Reducing and expanding ping-pong wire cube.
   Created by Dad (MysterEon) & Manus, 2026.
 

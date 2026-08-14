@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Marching 3-D Space Invaders scene.
   Created by Dad (MysterEon) & Manus, 2026.
 

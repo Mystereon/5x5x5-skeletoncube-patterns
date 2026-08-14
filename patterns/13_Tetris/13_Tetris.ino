@@ -1,4 +1,6 @@
 /*
+  FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
+
   SkeletonCube Patterns — Autoplay falling 3-D polycube Tetris.
   Created by Dad (MysterEon) & Manus, 2026.
 
