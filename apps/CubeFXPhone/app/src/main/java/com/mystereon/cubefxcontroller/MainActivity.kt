@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() { cubeFx.close(); super.onDestroy() }
 }
 
-private enum class PhonePage { LIVE, PATTERNS, SETUP, WATCH }
+private enum class PhonePage { LIVE, PATTERNS, SETUP, FIRMWARE, WATCH }
 
 @Composable
 private fun CubeFxPhoneApp(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit) {
@@ -79,12 +79,14 @@ private fun CubeFxPhoneApp(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit
             NavButton("LIVE", page == PhonePage.LIVE) { page = PhonePage.LIVE }
             NavButton("PATTERNS", page == PhonePage.PATTERNS) { page = PhonePage.PATTERNS }
             NavButton("ESP32", page == PhonePage.SETUP) { page = PhonePage.SETUP }
+            NavButton("FW", page == PhonePage.FIRMWARE) { page = PhonePage.FIRMWARE }
             NavButton("WATCH", page == PhonePage.WATCH) { page = PhonePage.WATCH }
         }
         when (page) {
             PhonePage.LIVE -> LivePage(cubeFx, requestBluetooth)
             PhonePage.PATTERNS -> PatternPage(cubeFx)
             PhonePage.SETUP -> SetupPage(cubeFx)
+            PhonePage.FIRMWARE -> FirmwarePage()
             PhonePage.WATCH -> WatchPage()
         }
     }
@@ -136,6 +138,23 @@ private fun PatternPage(cubeFx: CubeFxBleClient) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FirmwarePage() {
+    val context = LocalContext.current
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("CUBEFX FIRMWARE", color = TextMain, fontSize = 22.sp, fontWeight = FontWeight.Black)
+        NoticeCard("CUBEFXWEB", "Download the current ESP32-C3 Wi-Fi + BLE firmware sketch. It includes the 37 embedded CubeFX modes, configurable data/button pins, and the recommended maximum-app partition profile.")
+        ActionButton("OPEN CUBEFXWEB FIRMWARE", Lime) {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mystereon/5x5x5-skeletoncube-patterns/tree/main/standalone/CubeFXWeb")))
+        }
+        ActionButton("OPEN CURRENT RELEASE", Cyan) {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mystereon/5x5x5-skeletoncube-patterns/releases/latest")))
+        }
+        Text("Flash checklist: 1) download the repository or release source; 2) open CubeFXWeb.ino in Arduino IDE with the whole CubeFXWeb folder intact; 3) install FastLED and select ESP32C3 Dev Module; 4) retain the supplied partitions.csv for the 3.94 MiB maximum-app profile; 5) edit CubeFXConfig.h only when changing physical wiring; 6) upload by USB, then pair this controller with CubeFX-5x5x5.", color = Muted, fontSize = 14.sp)
+        Text("The app can save button-pin choices over BLE. LED data-pin and cube-dimension changes are firmware changes, so they require editing CubeFXConfig.h and reflashing.", color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 

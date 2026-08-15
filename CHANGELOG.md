@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.1 — Android firmware route
+
+Added a dedicated **Firmware** page to the Android CubeFX Controller source. The page links directly to the current `standalone/CubeFXWeb` firmware folder and the latest GitHub release, then presents a concise Arduino IDE flashing checklist including the supplied maximum-app `partitions.csv` profile and the distinction between persistent BLE button-pin changes versus reflash-required data-pin/dimension changes.
+
 ## v0.6.0 — Configurable CubeFX, patterns 49–54, and rumoured hidden scenes
 
 Expanded the canonical standalone library to **54 effects**. Added Black Hole Vortex, Stargate Dial-Up, 3-D Defender, 3-D Chequerboard, Hellraiser Puzzle Cube, and 3-D Rubik’s Cube. CubeFXWeb now exposes **37 selectable modes** and keeps the new renderers procedural, without SPIFFS assets or frame buffers. The public library generator produces directly uploadable folders 49–54 alongside the previous catalogue.
