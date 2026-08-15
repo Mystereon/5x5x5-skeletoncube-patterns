@@ -1,0 +1,6 @@
+# CubeFX preferred 4 MB ESP32-C3 profile: maximum firmware headroom, no OTA.
+# CubeFX uses NVS for Wi-Fi/button configuration and does not currently use SPIFFS.
+# Name,     Type, SubType, Offset,   Size,     Flags
+nvs,        data, nvs,     0x9000,   0x6000,
+phy_init,   data, phy,     0xf000,   0x1000,
+factory,    app,  factory, 0x10000,  0x3f0000,

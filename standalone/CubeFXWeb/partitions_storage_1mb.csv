@@ -1,0 +1,7 @@
+# Optional 4 MB ESP32-C3 profile: 1 MB SPIFFS for future local assets/presets.
+# Copy this file over partitions.csv before compiling if storage becomes necessary.
+# Name,     Type, SubType, Offset,   Size,     Flags
+nvs,        data, nvs,     0x9000,   0x6000,
+phy_init,   data, phy,     0xf000,   0x1000,
+factory,    app,  factory, 0x10000,  0x2f0000,
+spiffs,     data, spiffs,  0x300000, 0x100000,

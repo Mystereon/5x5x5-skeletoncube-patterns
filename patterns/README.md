@@ -1,6 +1,6 @@
 # Standalone pattern library
 
-This folder now contains the canonical **48 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.
+This folder now contains the canonical **54 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.
 
 | # | Pattern | Description |
 |---:|---|---|
@@ -52,6 +52,12 @@ This folder now contains the canonical **48 distinct visual effects**. Every num
 | 46 | [`Voxel Minesweeper`](46_VoxelMinesweeper/) | Falling probes land on base targets and make orange 3×3×3 impact bursts. |
 | 47 | [`Big Moon & Stars`](47_BigMoonStars/) | A large shaded moon surrounded by gently twinkling blue stars. |
 | 48 | [`Nixie Tube`](48_NixieTube/) | Dull orange inactive tube segments and bright orange 0–9 numerals. |
+| 49 | [`Black Hole Vortex`](49_BlackHoleVortex/) | Negative-space event horizon with violet, indigo, and cyan accretion ribbons. |
+| 50 | [`Stargate Dial-Up`](50_StargateDialUp/) | Stone base, seven locking chevrons, and a blue portal opening sequence. |
+| 51 | [`3-D Defender`](51_Defender3D/) | Cyan player ship, advancing orange foes, and a bright laser exchange. |
+| 52 | [`3-D Chequerboard`](52_Chequerboard3D/) | Negative-space chequer planes fold and transform through the cube. |
+| 53 | [`Hellraiser Puzzle Cube`](53_HellraiserPuzzleCube/) | Dark brass labyrinth cube with blue seams, amber glyphs, and mechanical phases. |
+| 54 | [`3-D Rubik's Cube`](54_RubiksCube3D/) | Inset coloured cube with twisting scrambled layers and a solved reveal. |
 
 ## Controller examples
 

@@ -59,6 +59,12 @@ CUBEFX_UNIQUE = [
     ('46_VoxelMinesweeper', 'Voxel Minesweeper', 'VoxelMinesweeper', 'Falling probes land on base targets and make orange 3×3×3 impact bursts.'),
     ('47_BigMoonStars', 'Big Moon & Stars', 'BigMoonStars', 'A large shaded moon surrounded by gently twinkling blue stars.'),
     ('48_NixieTube', 'Nixie Tube', 'NixieTube', 'Dull orange inactive tube segments and bright orange 0–9 numerals.'),
+    ('49_BlackHoleVortex', 'Black Hole Vortex', 'BlackHoleVortex', 'Negative-space event horizon with violet, indigo, and cyan accretion ribbons.'),
+    ('50_StargateDialUp', 'Stargate Dial-Up', 'StargateDialUp', 'Stone base, seven locking chevrons, and a blue portal opening sequence.'),
+    ('51_Defender3D', '3-D Defender', 'Defender3D', 'Cyan player ship, advancing orange foes, and a bright laser exchange.'),
+    ('52_Chequerboard3D', '3-D Chequerboard', 'Chequerboard3D', 'Negative-space chequer planes fold and transform through the cube.'),
+    ('53_HellraiserPuzzleCube', 'Hellraiser Puzzle Cube', 'HellraiserPuzzleCube', 'Dark brass labyrinth cube with blue seams, amber glyphs, and mechanical phases.'),
+    ('54_RubiksCube3D', '3-D Rubik\'s Cube', 'RubiksCube3D', 'Inset coloured cube with twisting scrambled layers and a solved reveal.'),
 ]
 
 # Preserve the two old controller examples in their own non-pattern location.
@@ -73,7 +79,7 @@ for name in CONTROLLER_FOLDERS:
 # Remove the old controller placement and the previous duplicated CubeFX entries.
 for name in CONTROLLER_FOLDERS:
     shutil.rmtree(PATTERNS / name, ignore_errors=True)
-for number in range(31, 55):
+for number in range(31, 61):
     for existing in PATTERNS.glob(f'{number:02d}_*'):
         shutil.rmtree(existing, ignore_errors=True)
 
@@ -199,7 +205,7 @@ catalog.sort()
 lines = [
     '# Standalone pattern library',
     '',
-    'This folder now contains the canonical **48 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
+    'This folder now contains the canonical **54 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
     '',
     '| # | Pattern | Description |',
     '|---:|---|---|',
@@ -226,4 +232,4 @@ controller_lines = [
 ]
 (CONTROLLERS / 'README.md').write_text('\n'.join(controller_lines) + '\n', encoding='utf-8')
 
-print('Built canonical standalone pattern library: 48 effects in patterns/; controllers preserved in controllers/.')
+print('Built canonical standalone pattern library: 54 effects in patterns/; controllers preserved in controllers/.')

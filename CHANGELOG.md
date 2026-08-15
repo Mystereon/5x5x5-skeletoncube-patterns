@@ -2,7 +2,15 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
-## Unreleased — Interactive Pong, BLE CubeFX, and patterns 46–48
+## v0.6.0 — Configurable CubeFX, patterns 49–54, and rumoured hidden scenes
+
+Expanded the canonical standalone library to **54 effects**. Added Black Hole Vortex, Stargate Dial-Up, 3-D Defender, 3-D Chequerboard, Hellraiser Puzzle Cube, and 3-D Rubik’s Cube. CubeFXWeb now exposes **37 selectable modes** and keeps the new renderers procedural, without SPIFFS assets or frame buffers. The public library generator produces directly uploadable folders 49–54 alongside the previous catalogue.
+
+CubeFXWeb now has `CubeFXConfig.h` for LED data pin, primary/secondary button pins, columns, rows, layers, and product-derived LED total. The two button pins can be changed through BLE and saved to ESP32 NVS; data-pin and physical-dimension changes remain explicit compile-and-flash operations. The recommended 4 MB ESP32-C3 profile is a custom maximum-app, no-OTA, no-SPIFFS partition table: compiled CubeFXWeb is 1,461,578 bytes, leaving 2,667,190 bytes inside the 0x3f0000-byte app partition.
+
+Added the CubeFX phone setup source with safe ESP32-C3 pin selection, rows × columns × layers LED calculation, generated configuration profile, and a Galaxy Watch controller route. Added the native Watch8 Classic controller source with a rotating-bezel pattern browser, BLE GATT writes, brightness/speed touch controls, Banner/Auto actions, and single-player Pong left/right commands.
+
+Five temporary hidden scenes now have distinct activation paths through a banner phrase, button rhythm, mode sequence, control coincidence, and patient observation. Their public treatment is deliberately spoiler-light in `EASTER_EGG_RUMOURS.md`.
 
 Expanded the canonical standalone library to **48 effects**. Added Voxel Minesweeper with falling probes, green base targets, and orange 3×3×3 hit bursts; Big Moon & Stars with a large shaded moon and twinkling sky; and a Nixie Tube that cycles 0–9 with dull orange inactive and bright orange active segments. Replaced the CubeFX self-playing Pong mode with actual single-player Pong: GPIO4 moves the full-height player paddle left and GPIO8 moves it right.
 

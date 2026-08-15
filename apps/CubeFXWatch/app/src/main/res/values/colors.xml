@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="graphite">#0B0D0B</color>
+    <color name="cube_green">#C8FF20</color>
+    <color name="ble_blue">#32C8FF</color>
+    <color name="nixie_amber">#FF7A16</color>
+</resources>

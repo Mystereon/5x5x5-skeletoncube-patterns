@@ -4,7 +4,7 @@
 
 **Created by Dad (MysterEon) & Manus, 2026.** It began with a physical 125-pixel cube and a simple question—how do you make voxel shapes tumble? It is released as a public starting point for anyone building, extending, or remixing small LED cubes.
 
-![Platform](https://img.shields.io/badge/platform-Arduino-00979D) ![LEDs](https://img.shields.io/badge/LEDs-125%20WS2812B-brightgreen) ![Patterns](https://img.shields.io/badge/patterns-48-purple) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Platform](https://img.shields.io/badge/platform-Arduino-00979D) ![LEDs](https://img.shields.io/badge/LEDs-125%20WS2812B-brightgreen) ![Patterns](https://img.shields.io/badge/patterns-54-purple) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## The pattern gallery
 
@@ -47,7 +47,7 @@ The master sketch contains a sequence of **28 effects**. Each receives a deliber
 SkeletonCubePatterns/                 # The self-playing master Arduino sketch
   SkeletonCubePatterns.ino
   CubeTypes.h
-patterns/                             # Canonical 48 standalone visual effects
+patterns/                             # Canonical 54 standalone visual effects
   01_RedVectorCube/
   ...
   28_WrappingComets/
@@ -59,6 +59,12 @@ patterns/                             # Canonical 48 standalone visual effects
   46_VoxelMinesweeper/
   47_BigMoonStars/
   48_NixieTube/
+  49_BlackHoleVortex/
+  50_StargateDialUp/
+  51_Defender3D/
+  52_Chequerboard3D/
+  53_HellraiserPuzzleCube/
+  54_RubiksCube3D/
 controllers/                           # ESP32-C3 hardware control examples
   29_ESP32C3_NextPatternButton/
   30_ESP32C3_DualButtonController/
@@ -66,16 +72,21 @@ standalone/                            # Standalone application-style sketches
   Conway3DLife/
   CubeFXWeb/
   CubeFXPatternDemos/                  # Alternate CubeFX demo source collection
-tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–48
+apps/                                  # Native Android companion source projects
+  CubeFXPhone/                         # 54-pattern Android phone controller
+  CubeFXWatch/                         # Galaxy Watch8 Classic Wear OS controller
+tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–54
 ```
 
-[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **48 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–48 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
+[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **54 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–54 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
-[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **31 selectable CubeFX modes**. These include green and red Matrix rains, Matrix Drift, a genuine single-player Pong, Voxel Minesweeper, Big Moon & Stars, Nixie Tube, Bullet Wall particle impacts, Padded Cell, scrolling micro-worlds, high-impact fire, explosions, fireworks, Pixel Pasture, parallax, a fish tank, and a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **37 selectable CubeFX modes**. In addition to its existing animations it now includes Black Hole Vortex, Stargate Dial-Up, 3-D Defender, 3-D Chequerboard, Hellraiser Puzzle Cube, and 3-D Rubik’s Cube. The controller retains green and red Matrix rains, genuine single-player Pong, Voxel Minesweeper, Big Moon & Stars, Nixie Tube, Bullet Wall, high-impact fire, fireworks, Pixel Pasture, and a configurable 3×5/5×5 perimeter message.
 
-[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, and 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube.
+[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube, and 49–54 explore negative space, sci-fi, retro arcade, and puzzle-cube scenes.
+
+The native Kotlin/Jetpack Compose source for the Android phone controller and the Galaxy Watch8 Classic companion is in [`apps/`](apps/). The phone app offers the 54-pattern browser, live engine/Banner controls, an ESP32 wiring-and-dimensions setup screen, and a Watch route. The Watch app targets the rotating bezel as its primary pattern selector. Build and installation notes are in [`apps/README.md`](apps/README.md).
 
 ## Hardware assumptions
 
@@ -90,6 +101,12 @@ This project is configured for the cube that inspired it.
 | Logical origin | Bottom–rear–left | Documented in the source header. |
 | Row order | Left → right | `SERPENTINE_ROWS = false` |
 | Frame delay | None | The project uses `millis()` timers instead. |
+
+CubeFXWeb has its own [`CubeFXConfig.h`](standalone/CubeFXWeb/CubeFXConfig.h) for the WS2812B data pin, both physical button pins, columns, rows, and layers. It computes `TOTAL_LEDS = columns × rows × layers` before an upload. The supplied visual renderer explicitly remains 5×5×5, so another dimension can be planned and calculated in the Android setup screen but must wait for the generic-volume renderer before it is flashed.
+
+### Recommended ESP32-C3 partition profile
+
+For the 4 MB ESP32-C3 SuperMini, CubeFXWeb ships with a custom **maximum-app, no-OTA, no-SPIFFS** `partitions.csv`. The cube uses NVS for small Wi-Fi and button-pin settings but stores no runtime assets, so filesystem flash is better spent on the expanding firmware. The application partition is **0x3f0000 bytes / about 3.94 MiB**. The expanded 54-pattern build measured **1,461,578 bytes**, leaving **2,667,190 bytes** of headroom; it also fits the former 2 MiB application partition at 69.69% should that profile be retained. Full rationale and an optional 1 MB SPIFFS alternative are in [`PARTITION_SCHEMES.md`](standalone/CubeFXWeb/PARTITION_SCHEMES.md).[5]
 
 The intended logical coordinate system is:
 
@@ -192,6 +209,12 @@ GPIO8 is an ESP32-C3 boot strapping pin. The mode switch is usable after startup
 
 CubeFXWeb advertises as **`CubeFX-5x5x5`** and exposes the CubeFX service UUID `6c75a300-7b1d-4f29-a221-000000000001`. The accompanying Android controller scans for this service and sends compact JSON pattern, engine, banner, next-pattern, and Life-reseed commands through its write-without-response characteristic. The firmware also publishes concise success/error status messages through a notify characteristic. This standard ESP32 Arduino BLE server structure uses a writable characteristic and advertising service UUID as documented by Espressif.[4]
 
+The Android setup workflow also distinguishes **persistent button-pin choices** from **compile-and-flash choices**. A BLE `pins` command can save distinct primary and secondary button pins in NVS; changing the FastLED data pin or physical dimensions generates a new `CubeFXConfig.h` profile and requires a USB reflash. The Android phone controller includes a Galaxy Watch8 Classic companion-download route and an ESP32 setup screen; the native Watch companion uses the physical bezel to browse modes and touch controls for live actions.
+
+## CubeFX rumours
+
+Some builders say a skeletal cube has stranger moods than its normal selector suggests: a red eye, an impossible extra light, a green door, a cold signal, and a small wandering lantern. The five alleged activation methods are different, temporary, and not described as instructions. Read [`EASTER_EGG_RUMOURS.md`](EASTER_EGG_RUMOURS.md) only if you are comfortable with spoilers that are not quite spoilers.
+
 ## Electrical notes
 
 Use a 5 V supply sized for the LED load and connect its ground to Arduino ground. FastLED includes a software power-management function; this sketch conservatively sets it to 1.5 A:
@@ -216,3 +239,4 @@ Released under the [MIT License](LICENSE). Keep the Dad & Manus origin credit in
 [2]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/peripherals/gpio.html "Espressif ESP32-C3 GPIO summary"
 [3]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c3/schematic-checklist.html#strapping-pins "Espressif ESP32-C3 strapping-pin guidance"
 [4]: https://docs.espressif.com/projects/arduino-esp32/en/latest/api/ble.html "Arduino-ESP32 BLE API"
+[5]: https://docs.espressif.com/projects/arduino-esp32/en/latest/tutorials/partition_table.html "Arduino-ESP32 partition tables"

@@ -36,10 +36,12 @@
 #include <BLEDevice.h>
 #include <BLE2902.h>
 #include <FastLED.h>
+#include <Preferences.h>
 #include <esp_system.h>
 #include <math.h>
 #include <ctype.h>
 #include <string.h>
+#include "CubeFXConfig.h"
 
 // -----------------------------------------------------------------------------
 // Wi-Fi setup
@@ -65,9 +67,14 @@ BLEServer *bleServer = nullptr;
 // -----------------------------------------------------------------------------
 // Cube configuration and physical mapper
 // -----------------------------------------------------------------------------
-constexpr uint8_t N = 5;
-constexpr uint16_t NUM_LEDS = N * N * N;
-#define DATA_PIN 2
+constexpr uint8_t COLUMNS = CUBEFX_COLUMNS;
+constexpr uint8_t ROWS = CUBEFX_ROWS;
+constexpr uint8_t LAYERS = CUBEFX_LAYERS;
+constexpr uint8_t N = COLUMNS;
+constexpr uint16_t NUM_LEDS = CUBEFX_TOTAL_LEDS;
+static_assert(COLUMNS == 5 && ROWS == 5 && LAYERS == 5,
+  "CubeFXWeb v0.5 patterns currently require a 5x5x5 cube. Use the Android setup total as a planning value for other dimensions.");
+#define DATA_PIN CUBEFX_LED_DATA_PIN
 #define CHIPSET WS2812B
 #define COLOR_ORDER GRB
 constexpr uint8_t DEFAULT_BRIGHTNESS = 100;
@@ -145,6 +152,12 @@ enum Pattern : uint8_t {
   PATTERN_MINESWEEPER,
   PATTERN_MOON_STARS,
   PATTERN_NIXIE_TUBE,
+  PATTERN_BLACK_HOLE,
+  PATTERN_STARGATE,
+  PATTERN_DEFENDER,
+  PATTERN_CHEQUERBOARD,
+  PATTERN_PUZZLE_CUBE,
+  PATTERN_RUBIKS_CUBE,
   PATTERN_COUNT
 };
 
@@ -155,7 +168,8 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Bullet Wall", "Padded Cell", "Block Run", "Parallax Starfield", "Trench Run",
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
-  "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube"
+  "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -967,8 +981,148 @@ void renderBanner(float t) {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Compact expansion patterns 49–54 and temporary hidden scenes. No filesystem
+// assets or frame buffers are used, protecting firmware size headroom.
+// -----------------------------------------------------------------------------
+bool blackHoleReverse = false;
+bool stargateHeldOpen = false;
+int8_t defenderShipX = 2;
+bool chequerReverse = false;
+uint8_t puzzleGlow = 150;
+bool rubikSolvedReveal = false;
+uint8_t secretScene = 255;
+uint32_t secretStartedAt = 0;
+uint8_t secretPatternRune = 0;
+uint8_t primaryTapStreak = 0;
+uint32_t lastPrimaryTapAt = 0;
+
+void startSecretScene(uint8_t scene) {
+  secretScene = scene % 5;
+  secretStartedAt = millis();
+  patternStartedAt = millis();
+}
+
+void recordPatternRune(uint8_t candidate) {
+  const uint8_t rune[4] = {uint8_t(PATTERN_VECTOR_CUBE), uint8_t(PATTERN_MATRIX_RAIN), uint8_t(PATTERN_VECTOR_CUBE), uint8_t(PATTERN_MATRIX_RAIN)};
+  if (candidate == rune[secretPatternRune]) {
+    if (++secretPatternRune >= 4) {
+      startSecretScene(2);
+      secretPatternRune = 0;
+    }
+  } else {
+    secretPatternRune = candidate == rune[0] ? 1 : 0;
+  }
+}
+
+void renderBlackHole(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const float spin = t * (blackHoleReverse ? -1.2f : 1.2f);
+  for (int8_t z = 0; z < N; ++z) for (int8_t y = 0; y < N; ++y) for (int8_t x = 0; x < N; ++x) {
+    const float dx = x - 2.0f, dy = y - 2.0f, dz = z - 2.0f;
+    const float r = sqrtf(dx * dx + dy * dy + dz * dz);
+    if (r < 1.05f || r > 3.1f) continue;
+    const float ribbon = sinf(atan2f(dy, dx) + spin + r * 2.7f + dz * 0.8f);
+    if (ribbon > 0.36f) setVoxel(x, y, z, CHSV(180 + uint8_t(r * 18), 210, uint8_t(70 + ribbon * 150)));
+  }
+}
+
+void renderStargate(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const uint8_t chevrons = stargateHeldOpen ? 7 : min<uint8_t>(7, uint8_t(fmodf(t * 0.8f, 9.0f)));
+  for (int8_t x = 0; x < N; ++x) for (int8_t y = 0; y < N; ++y) setVoxel(x, y, 0, CRGB(25, 18, 12));
+  for (int8_t z = 1; z < N; ++z) for (int8_t x = 0; x < N; ++x) {
+    const float dx = x - 2.0f, dz = z - 2.3f, r = sqrtf(dx * dx + dz * dz);
+    if (r > 1.5f && r < 2.65f) setVoxel(x, 2, z, CRGB(36, 42, 45));
+    if ((chevrons >= 7 || stargateHeldOpen) && r < 1.45f) setVoxel(x, 2, z, CHSV(145, 185, 160 + uint8_t(sinf(t * 5 + x + z) * 45)));
+  }
+  const int8_t cx[7] = {2,4,4,2,0,0,2};
+  const int8_t cz[7] = {4,3,1,1,1,3,4};
+  for (uint8_t i = 0; i < chevrons; ++i) setVoxel(cx[i], 2, cz[i], CRGB::Orange);
+}
+
+void renderDefender(float t) {
+  fadeToBlackBy(leds, NUM_LEDS, 68);
+  setVoxel(defenderShipX, 4, 1, CRGB(0, 150, 235));
+  setVoxel(defenderShipX - 1, 4, 0, CRGB(0, 60, 90));
+  setVoxel(defenderShipX + 1, 4, 0, CRGB(0, 60, 90));
+  const int8_t enemyY = 3 - int8_t(fmodf(t * 1.5f, 4.0f));
+  for (int8_t i = 0; i < 3; ++i) {
+    const int8_t enemyX = (i * 2 + int(t * 1.2f)) % 5;
+    setVoxel(enemyX, max<int8_t>(0, enemyY), 3, CRGB(225, 35, 12));
+    setVoxel(enemyX, max<int8_t>(0, enemyY), 2, CRGB(90, 8, 2));
+  }
+  setVoxel(defenderShipX, 4 - int8_t(fmodf(t * 8.0f, 5.0f)), 1, CRGB(180, 235, 255));
+}
+
+void renderChequerboard(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const int8_t step = int8_t(t * (chequerReverse ? -1.3f : 1.3f));
+  for (int8_t z = 0; z < N; ++z) for (int8_t y = 0; y < N; ++y) for (int8_t x = 0; x < N; ++x) {
+    const int8_t folded = (x + y + step) % 5;
+    const bool onPlane = folded == z || ((x + z + step) % 5 == y && (step & 2));
+    if (onPlane && ((x + y + z + step) & 1) == 0) setVoxel(x, y, z, CHSV(130 + (step & 31), 130, 235));
+  }
+}
+
+void renderPuzzleCube(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const uint8_t seam = uint8_t(95 + sinf(t * 3.0f) * puzzleGlow);
+  for (int8_t z = 0; z < N; ++z) for (int8_t y = 0; y < N; ++y) for (int8_t x = 0; x < N; ++x) {
+    const bool surface = x == 0 || x == 4 || y == 0 || y == 4 || z == 0 || z == 4;
+    if (!surface) continue;
+    const bool seamLine = ((x + int(t * .6f)) % 2 == 0 && (y == 0 || y == 4)) || (z == 2 && ((x + y) & 1));
+    if (seamLine) setVoxel(x, y, z, CHSV(151, 175, seam));
+    else if (((x * 3 + y * 5 + z * 7 + int(t)) % 9) == 0) setVoxel(x, y, z, CRGB(175, 55, 5));
+    else setVoxel(x, y, z, CRGB(18, 12, 7));
+  }
+}
+
+void renderRubiksCube(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const uint8_t turn = rubikSolvedReveal ? 0 : uint8_t(t * 1.2f) % 6;
+  for (int8_t z = 1; z <= 3; ++z) for (int8_t y = 1; y <= 3; ++y) for (int8_t x = 1; x <= 3; ++x) {
+    const bool surface = x == 1 || x == 3 || y == 1 || y == 3 || z == 1 || z == 3;
+    if (!surface) continue;
+    uint8_t hue = x == 1 ? 0 : x == 3 ? 32 : y == 1 ? 96 : y == 3 ? 160 : z == 1 ? 192 : 42;
+    if (!rubikSolvedReveal && ((x + y + z + turn) % 4 == 0)) hue += 70;
+    setVoxel(x, y, z, CHSV(hue, 235, 245));
+  }
+}
+
+void renderSecretScene(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  if (secretScene == 0) {
+    const int8_t pupil = 2 + int8_t(sinf(t * 2.5f) * 1.4f);
+    for (int8_t x = 0; x < N; ++x) for (int8_t z = 1; z < 4; ++z) if (abs(x - 2) + abs(z - 2) < 3) setVoxel(x, 4, z, CRGB(90, 0, 0));
+    setVoxel(pupil, 4, 2, CRGB::Red);
+  } else if (secretScene == 1) {
+    for (uint16_t i = 0; i < NUM_LEDS; ++i) leds[i] = CRGB(13, 13, 13);
+    const uint8_t phantom = uint8_t(t * 19) % NUM_LEDS;
+    leds[phantom] = CRGB::White;
+    leds[(phantom + 1) % NUM_LEDS] += CRGB(90, 90, 90);
+  } else if (secretScene == 2) {
+    for (int8_t z = 0; z < N; ++z) { setVoxel(1, 2, z, CRGB(0, 80, 8)); setVoxel(3, 2, z, CRGB(0, 80, 8)); }
+    setVoxel(2, 2, uint8_t(t * 4) % 5, CRGB(120, 255, 18));
+  } else if (secretScene == 3) {
+    const int8_t layer = uint8_t(t * 3) % 5;
+    for (int8_t x = 0; x < N; ++x) for (int8_t y = 0; y < N; ++y) setVoxel(x, y, layer, CRGB(8, 100, 220));
+  } else {
+    const int8_t p = uint8_t(t * 6) % 16;
+    setPerimeterVoxel(p, 2, CRGB(255, 78, 4));
+    setVoxel(2, 2, 2, CRGB(255, 140, 14));
+  }
+}
+
 void renderCurrentPattern() {
   const float t = effectTime();
+  if (secretScene != 255) {
+    if (millis() - secretStartedAt < 5200UL) {
+      renderSecretScene(t);
+      return;
+    }
+    secretScene = 255;
+  }
   switch (currentPattern) {
     case PATTERN_VECTOR_CUBE: renderVectorCube(t); break;
     case PATTERN_MATRIX_RAIN: renderMatrixRain(t); break;
@@ -1001,12 +1155,19 @@ void renderCurrentPattern() {
     case PATTERN_MINESWEEPER: renderMinesweeper(t); break;
     case PATTERN_MOON_STARS: renderMoonStars(t); break;
     case PATTERN_NIXIE_TUBE: renderNixieTube(t); break;
+    case PATTERN_BLACK_HOLE: renderBlackHole(t); break;
+    case PATTERN_STARGATE: renderStargate(t); break;
+    case PATTERN_DEFENDER: renderDefender(t); break;
+    case PATTERN_CHEQUERBOARD: renderChequerboard(t); break;
+    case PATTERN_PUZZLE_CUBE: renderPuzzleCube(t); break;
+    case PATTERN_RUBIKS_CUBE: renderRubiksCube(t); break;
     default: break;
   }
 }
 
 void advancePattern() {
   currentPattern = Pattern((currentPattern + 1) % PATTERN_COUNT);
+  recordPatternRune(currentPattern);
   patternStartedAt = millis();
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 }
@@ -1015,8 +1176,9 @@ void advancePattern() {
 // Optional hardware buttons: GPIO4 pattern-primary/banner; GPIO8
 // pattern-secondary/next. Long presses are global; short presses are local.
 // -----------------------------------------------------------------------------
-constexpr uint8_t PRIMARY_BUTTON_PIN = 4;
-constexpr uint8_t SECONDARY_BUTTON_PIN = 8;
+uint8_t primaryButtonPin = CUBEFX_PRIMARY_BUTTON_PIN;
+uint8_t secondaryButtonPin = CUBEFX_SECONDARY_BUTTON_PIN;
+Preferences pinPreferences;
 constexpr uint16_t BUTTON_DEBOUNCE_MS = 35;
 constexpr uint16_t BUTTON_LONG_PRESS_MS = 650;
 bool primaryRaw = HIGH, primaryStable = HIGH, secondaryRaw = HIGH, secondaryStable = HIGH;
@@ -1075,6 +1237,30 @@ void runShortPatternAction(bool primary) {
       if (primary) speedControl = speedControl >= 210 ? 80 : speedControl + 45;
       else cycleBrightness();
       break;
+    case PATTERN_BLACK_HOLE:
+      if (primary) blackHoleReverse = !blackHoleReverse;
+      else cycleSpeed();
+      break;
+    case PATTERN_STARGATE:
+      if (primary) { stargateHeldOpen = false; patternStartedAt = millis(); }
+      else stargateHeldOpen = !stargateHeldOpen;
+      break;
+    case PATTERN_DEFENDER:
+      if (primary) defenderShipX = max<int8_t>(0, defenderShipX - 1);
+      else defenderShipX = min<int8_t>(4, defenderShipX + 1);
+      break;
+    case PATTERN_CHEQUERBOARD:
+      if (primary) chequerReverse = !chequerReverse;
+      else bannerHue += 27;
+      break;
+    case PATTERN_PUZZLE_CUBE:
+      if (primary) puzzleGlow = puzzleGlow >= 220 ? 70 : puzzleGlow + 45;
+      else cycleSpeed();
+      break;
+    case PATTERN_RUBIKS_CUBE:
+      if (primary) { rubikSolvedReveal = false; patternStartedAt = millis(); }
+      else rubikSolvedReveal = !rubikSolvedReveal;
+      break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
     case PATTERN_RED_MATRIX_RAIN:
@@ -1094,24 +1280,31 @@ void runShortPatternAction(bool primary) {
 }
 
 void setupButtons() {
-  pinMode(PRIMARY_BUTTON_PIN, INPUT_PULLUP);
-  pinMode(SECONDARY_BUTTON_PIN, INPUT_PULLUP);
-  primaryRaw = primaryStable = digitalRead(PRIMARY_BUTTON_PIN);
-  secondaryRaw = secondaryStable = digitalRead(SECONDARY_BUTTON_PIN);
+  pinMode(primaryButtonPin, INPUT_PULLUP);
+  pinMode(secondaryButtonPin, INPUT_PULLUP);
+  primaryRaw = primaryStable = digitalRead(primaryButtonPin);
+  secondaryRaw = secondaryStable = digitalRead(secondaryButtonPin);
 }
 
 void updateButtons() {
   const uint32_t now = millis();
-  const bool primary = digitalRead(PRIMARY_BUTTON_PIN);
+  const bool primary = digitalRead(primaryButtonPin);
   if (primary != primaryRaw) { primaryRaw = primary; primaryChangedAt = now; }
   if ((now - primaryChangedAt) >= BUTTON_DEBOUNCE_MS && primaryStable != primaryRaw) {
     primaryStable = primaryRaw;
     if (primaryStable == LOW) primaryPressedAt = now;
     else if (now - primaryPressedAt >= BUTTON_LONG_PRESS_MS) activateBannerMode();
-    else runShortPatternAction(true);
+    else {
+      primaryTapStreak = now - lastPrimaryTapAt < 1050 ? primaryTapStreak + 1 : 1;
+      lastPrimaryTapAt = now;
+      if (primaryTapStreak >= 4) {
+        startSecretScene(1);
+        primaryTapStreak = 0;
+      } else runShortPatternAction(true);
+    }
   }
 
-  const bool secondary = digitalRead(SECONDARY_BUTTON_PIN);
+  const bool secondary = digitalRead(secondaryButtonPin);
   if (secondary != secondaryRaw) { secondaryRaw = secondary; secondaryChangedAt = now; }
   if ((now - secondaryChangedAt) >= BUTTON_DEBOUNCE_MS && secondaryStable != secondaryRaw) {
     secondaryStable = secondaryRaw;
@@ -1170,6 +1363,7 @@ void handleControl() {
     const int value = web.arg("pattern").toInt();
     if (value >= 0 && value < PATTERN_COUNT) {
       currentPattern = Pattern(value);
+      recordPatternRune(currentPattern);
       autoCycle = false;
       patternStartedAt = millis();
     }
@@ -1181,7 +1375,11 @@ void handleControl() {
   if (web.hasArg("speed")) speedControl = constrain(web.arg("speed").toInt(), 1, 255);
   if (web.hasArg("fps")) frameRateLimit = constrain(web.arg("fps").toInt(), 30, 120);
   if (web.hasArg("cycle")) cycleDurationMs = constrain(web.arg("cycle").toInt(), 5, 120) * 1000UL;
-  if (web.hasArg("text")) setBannerMessage(web.arg("text"));
+  if (web.hasArg("text")) {
+    const String requestedText = web.arg("text");
+    setBannerMessage(requestedText);
+    if (requestedText == "OPEN EYE") startSecretScene(0);
+  }
   if (web.hasArg("bannerHue")) bannerHue = constrain(web.arg("bannerHue").toInt(), 0, 255);
   if (web.hasArg("bannerSpeed")) bannerScrollSpeed = constrain(web.arg("bannerSpeed").toInt(), 1, 255);
   if (web.hasArg("bannerFont")) {
@@ -1220,6 +1418,35 @@ String readJsonString(const String &json, const char *key, const String &fallbac
   return valueEnd < 0 ? fallback : json.substring(valueStart, valueEnd);
 }
 
+bool isAllowedButtonPin(int pin) {
+  // GPIO12–17 are normally flash pins; GPIO18/19 are USB-JTAG pins. Button
+  // choices also must not overlap the compile-time FastLED output.
+  return ((pin >= 0 && pin <= 11 && pin != DATA_PIN) || pin == 20 || pin == 21);
+}
+
+void loadButtonPinPreferences() {
+  pinPreferences.begin("cubefx", true);
+  const uint8_t savedPrimary = pinPreferences.getUChar("button1", primaryButtonPin);
+  const uint8_t savedSecondary = pinPreferences.getUChar("button2", secondaryButtonPin);
+  pinPreferences.end();
+  if (isAllowedButtonPin(savedPrimary)) primaryButtonPin = savedPrimary;
+  if (isAllowedButtonPin(savedSecondary) && savedSecondary != primaryButtonPin) secondaryButtonPin = savedSecondary;
+}
+
+bool saveButtonPins(int primary, int secondary) {
+  if (!isAllowedButtonPin(primary) || !isAllowedButtonPin(secondary) || primary == secondary) return false;
+  pinMode(primaryButtonPin, INPUT);
+  pinMode(secondaryButtonPin, INPUT);
+  primaryButtonPin = uint8_t(primary);
+  secondaryButtonPin = uint8_t(secondary);
+  setupButtons();
+  pinPreferences.begin("cubefx", false);
+  pinPreferences.putUChar("button1", primaryButtonPin);
+  pinPreferences.putUChar("button2", secondaryButtonPin);
+  pinPreferences.end();
+  return true;
+}
+
 bool selectCanonicalPattern(int canonicalId) {
   // The mobile app catalog is the 48-pattern standalone catalogue. CubeFXWeb
   // currently embeds the 31 effects mapped here; other canonical demos remain
@@ -1256,9 +1483,16 @@ bool selectCanonicalPattern(int canonicalId) {
     case 46: currentPattern = PATTERN_MINESWEEPER; break;
     case 47: currentPattern = PATTERN_MOON_STARS; break;
     case 48: currentPattern = PATTERN_NIXIE_TUBE; break;
+    case 49: currentPattern = PATTERN_BLACK_HOLE; break;
+    case 50: currentPattern = PATTERN_STARGATE; break;
+    case 51: currentPattern = PATTERN_DEFENDER; break;
+    case 52: currentPattern = PATTERN_CHEQUERBOARD; break;
+    case 53: currentPattern = PATTERN_PUZZLE_CUBE; break;
+    case 54: currentPattern = PATTERN_RUBIKS_CUBE; break;
     default: return false;
   }
   autoCycle = false;
+  recordPatternRune(currentPattern);
   patternStartedAt = millis();
   return true;
 }
@@ -1284,11 +1518,14 @@ void handleBleCommand(const String &json) {
     cycleDurationMs = constrain(readJsonInt(json, "cycle", cycleDurationMs / 1000), 5, 120) * 1000UL;
     autoCycle = readJsonBool(json, "auto", autoCycle);
     FastLED.setBrightness(brightness);
+    if (brightness == 42 && speedControl == 42) startSecretScene(3);
     publishBleStatus(true, "engine applied");
     return;
   }
   if (op == "banner") {
-    setBannerMessage(readJsonString(json, "text", String(bannerText)));
+    const String requestedText = readJsonString(json, "text", String(bannerText));
+    setBannerMessage(requestedText);
+    if (requestedText == "OPEN EYE") startSecretScene(0);
     bannerFont = readJsonInt(json, "font", uint8_t(bannerFont)) == 5 ? BANNER_FONT_5X5 : BANNER_FONT_3X5;
     bannerHue = constrain(readJsonInt(json, "hue", bannerHue), 0, 255);
     bannerScrollSpeed = constrain(readJsonInt(json, "speed", bannerScrollSpeed), 1, 255);
@@ -1298,6 +1535,24 @@ void handleBleCommand(const String &json) {
   }
   if (op == "next") { autoCycle = false; advancePattern(); publishBleStatus(true, "next pattern"); return; }
   if (op == "reseed") { seedLife(); publishBleStatus(true, "life reseeded"); return; }
+  if (op == "action") {
+    runShortPatternAction(readJsonBool(json, "primary", true));
+    publishBleStatus(true, "pattern action");
+    return;
+  }
+  if (op == "pins") {
+    const int requestedData = readJsonInt(json, "dataPin", DATA_PIN);
+    const int requestedPrimary = readJsonInt(json, "primaryPin", primaryButtonPin);
+    const int requestedSecondary = readJsonInt(json, "secondaryPin", secondaryButtonPin);
+    if (!saveButtonPins(requestedPrimary, requestedSecondary)) {
+      publishBleStatus(false, "unsafe button pins");
+    } else if (requestedData != DATA_PIN) {
+      publishBleStatus(true, "buttons saved; reflash data pin");
+    } else {
+      publishBleStatus(true, "button pins saved");
+    }
+    return;
+  }
   publishBleStatus(false, "unknown command");
 }
 
@@ -1371,6 +1626,7 @@ void setup() {
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
   randomSeed(esp_random());
   seedLife();
+  loadButtonPinPreferences();
   setupButtons();
   setupNetwork();
   setupWeb();
@@ -1384,6 +1640,9 @@ void loop() {
 
   const uint32_t now = millis();
   if (autoCycle && now - patternStartedAt >= cycleDurationMs) advancePattern();
+  if (!autoCycle && currentPattern == PATTERN_CLOUDS && secretScene == 255 && now - patternStartedAt >= 240000UL) {
+    startSecretScene(4);
+  }
 
   // The old fixed 16 ms gate capped all effects at about 60 FPS. At 125 LEDs,
   // WS2812B output occupies only a small fraction of the ESP32-C3's time, so a
