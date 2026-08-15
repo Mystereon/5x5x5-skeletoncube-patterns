@@ -8,12 +8,35 @@ The firmware has no cloud dependency and uses only FastLED plus the Arduino-ESP3
 
 | Area | Included |
 |---|---|
-| Pattern gallery | 12 cube-aware effects: vector cube, Matrix rain, plasma, fire, spirals, comets, Pong, 3-D Life, clouds, glitter, corner cubes, and a 3×5 perimeter banner. |
+| Pattern gallery | 22 cube-aware effects: the original abstract, simulation, and banner patterns plus eight animated micro-world scenes, a three-layer Pyramid, and two complementary Matrix modes. |
 | Browser controls | Pattern selection, higher-range motion speed, a 30–120 FPS frame cap, automatic dwell time, auto/manual switch, next pattern, 3-D Life reseed, and banner text/colour/scroll-speed controls. |
 | Networking | Access-point mode by default; optional connection to an existing Wi-Fi network. |
 | Physical controls | GPIO4 advances a pattern in manual mode; GPIO8 toggles auto/manual. |
 | Rendering | Non-blocking `millis()` scheduling; no runtime `delay()` and a configurable 30–120 FPS scheduler. |
 | Cube map | The confirmed bottom–rear–left origin and non-serpentine left-to-right rows. |
+
+## Matrix movement modes
+
+| Pattern | Motion and palette |
+|---|---|
+| **3-D Matrix Rain** | Independent streams fall **straight down Z** in each `(x,y)` column. Bodies are deep emerald, trails approach black-green, and only stream heads reach yellow-green—never white. |
+| **Matrix Drift** | The earlier diagonal green wash is intentionally retained as its own pattern, using a coordinated diagonal phase across the volume. |
+
+## Micro-world scenes
+
+The new scenes are deliberately written as direct 125-voxel renderers rather than large sprite buffers, so they remain comfortable at the controller’s 30–120 FPS scheduler range. The pattern gallery now includes the following story-like animations.
+
+| Pattern | Cube scene |
+|---|---|
+| **Bullet Wall** | Red particles collide with a single grey plate; impact flashes and sparks appear at the collision points. |
+| **Padded Cell** | All six dim-grey walls enclose a central 3×3×3 chamber where one red pixel ricochets on every axis. |
+| **Block Run** | A grass floor and scrolling block course pass a small hopping red runner. |
+| **Parallax Starfield** | Three independently moving star layers create depth through different apparent speeds. |
+| **Trench Run** | A blue-grey tunnel, pilot reticle, and red target form a compact forward-flight scene. |
+| **Running Legs** | A voxel stick runner alternates knees and wide-stepping feet. |
+| **Fairies in Green Box** | A green wireframe enclosure contains three drifting, wing-pulsing fairy lights. |
+| **Orange Fish Tank** | A blue-framed aquarium contains shifting water and two orange fish with tails. |
+| **Three-Layer Pyramid** | A discrete **3×3 base**, **2×2 middle tier**, and pulsing single apex form a compact illuminated pyramid. |
 
 ## Upload and connect
 

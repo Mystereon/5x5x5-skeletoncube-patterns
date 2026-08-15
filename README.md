@@ -64,7 +64,7 @@ Every folder under [`patterns/`](patterns/) contains an uploadable `.ino` file a
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
-[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 browser controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes an HTTP API for 12 built-in 3-D patterns—including a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 browser controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes an HTTP API for 22 built-in 3-D patterns—including straight-down Matrix Rain, diagonal Matrix Drift, Bullet Wall particle impacts, Padded Cell, scrolling micro-worlds, parallax, a fish tank, and a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
 
 ## Hardware assumptions
 

@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.7 — CubeFXWeb micro-world scenes
+
+Expanded CubeFXWeb from 12 to 22 selectable effects. Added Bullet Wall particle impacts, Padded Cell, Block Run, Parallax Starfield, Trench Run, Running Legs, Fairies in Green Box, Orange Fish Tank, the requested three-layer Pyramid with a 3×3 base, 2×2 middle tier, and pulsing apex, plus Matrix Drift. Retuned 3-D Matrix Rain to independent straight-down deep-emerald streams with yellow-green heads and no white, while preserving the former diagonal wash as Matrix Drift.
+
 ## v0.3.6 — CubeFXWeb non-sticky controls
 
 Added dirty-control tracking in the browser interface. Live refreshes no longer overwrite engine sliders, banner text, font selection, hue, or scroll speed while they are being edited; the controls synchronize only after **Apply** or **Send to Cube**.

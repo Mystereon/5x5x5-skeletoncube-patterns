@@ -115,13 +115,25 @@ enum Pattern : uint8_t {
   PATTERN_GLITTER,
   PATTERN_CORNER_CUBES,
   PATTERN_BANNER,
+  PATTERN_BULLET_WALL,
+  PATTERN_PADDED_CELL,
+  PATTERN_BLOCK_RUN,
+  PATTERN_PARALLAX,
+  PATTERN_TRENCH_RUN,
+  PATTERN_RUNNING_LEGS,
+  PATTERN_FAIRY_BOX,
+  PATTERN_AQUARIUM,
+  PATTERN_PYRAMID,
+  PATTERN_MATRIX_DRIFT,
   PATTERN_COUNT
 };
 
 const char *const patternNames[PATTERN_COUNT] = {
   "Red Vector Cube", "3-D Matrix Rain", "Neon Plasma", "Volume Fire",
   "Twin Spirals", "Wrapping Comets", "Self-playing Pong", "Conway 3-D Life",
-  "Cloud Volume", "White Glitter", "Corner Cubes", "3x5 Perimeter Banner"
+  "Cloud Volume", "White Glitter", "Corner Cubes", "3x5 Perimeter Banner",
+  "Bullet Wall", "Padded Cell", "Block Run", "Parallax Starfield", "Trench Run",
+  "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -161,17 +173,41 @@ void renderVectorCube(float t) {
   }
 }
 
+// Each (x,y) stream has a deliberately irregular phase so it falls vertically
+// down Z without producing a travelling diagonal plane across the cube.
+const uint8_t MATRIX_COLUMN_PHASE[N][N] = {
+  {0, 6, 2, 8, 3},
+  {5, 1, 7, 4, 0},
+  {3, 8, 5, 1, 6},
+  {7, 2, 0, 6, 4},
+  {1, 5, 8, 3, 7}
+};
+
 void renderMatrixRain(float t) {
-  fadeToBlackBy(leds, NUM_LEDS, 56);
+  fadeToBlackBy(leds, NUM_LEDS, 62);
   const uint8_t frame = uint8_t(t * 7.0f);
   for (uint8_t x = 0; x < N; ++x) {
     for (uint8_t y = 0; y < N; ++y) {
-      const uint8_t phase = uint8_t(x * 37 + y * 53);
-      const int8_t head = (phase + frame) % (N + 4) - 2;
-      addVoxel(x, y, head, CRGB(160, 255, 175));
-      addVoxel(x, y, head - 1, CRGB(0, 130, 25));
-      addVoxel(x, y, head - 2, CRGB(0, 50, 8));
+      const int8_t head = (MATRIX_COLUMN_PHASE[y][x] + frame) % (N + 4) - 2;
+      // Deep emerald body; the head is yellow-green, never white.
+      addVoxel(x, y, head, CHSV(76, 255, 255));
+      addVoxel(x, y, head - 1, CRGB(0, 118, 16));
+      addVoxel(x, y, head - 2, CRGB(0, 42, 5));
+      addVoxel(x, y, head - 3, CRGB(0, 16, 2));
     }
+  }
+}
+
+void renderMatrixDrift(float t) {
+  fadeToBlackBy(leds, NUM_LEDS, 52);
+  const uint8_t frame = uint8_t(t * 6.0f);
+  // Preserve the original diagonal wash intentionally as a separate effect.
+  for (uint8_t x = 0; x < N; ++x) for (uint8_t y = 0; y < N; ++y) {
+    const int8_t head = (frame + x * 2 + y * 3) % (N + 5) - 2;
+    addVoxel(x, y, head, CHSV(80, 245, 235));
+    addVoxel(x, y, head - 1, CRGB(0, 105, 12));
+    addVoxel(x, y, head - 2, CRGB(0, 36, 4));
+    addVoxel(x, y, head - 3, CRGB(0, 10, 1));
   }
 }
 
@@ -343,6 +379,192 @@ void renderCornerCubes(float t) {
 }
 
 // -----------------------------------------------------------------------------
+// Micro-world scenes: all use bounded math and at most 125 voxel writes/frame.
+// -----------------------------------------------------------------------------
+void renderBulletWall(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // A complete grey impact wall at the right side of the cube.
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) {
+    const uint8_t shade = 75 + ((y + z) & 1) * 35;
+    setVoxel(4, y, z, CRGB(shade, shade, shade));
+  }
+  // Three red shots fly from left to right on staggered trajectories.
+  for (uint8_t shot = 0; shot < 3; ++shot) {
+    const int8_t x = int8_t(fmodf(t * (3.2f + shot * 0.6f) + shot * 2.5f, 9.0f)) - 2;
+    const int8_t y = 1 + shot;
+    const int8_t z = 1 + ((shot * 2 + int(t * 1.8f)) % 3);
+    setVoxel(x, y, z, CRGB::Red);
+    setVoxel(x - 1, y, z, CRGB(90, 0, 0));
+    if (x == 4) {
+      setVoxel(4, y, z, CRGB::White);
+      addVoxel(4, y - 1, z, CRGB(200, 30, 0));
+      addVoxel(4, y + 1, z, CRGB(200, 30, 0));
+      addVoxel(4, y, z - 1, CRGB(200, 30, 0));
+      addVoxel(4, y, z + 1, CRGB(200, 30, 0));
+    }
+  }
+}
+
+int8_t cellX = 2, cellY = 2, cellZ = 2;
+int8_t cellDX = 1, cellDY = -1, cellDZ = 1;
+uint32_t lastCellStepAt = 0;
+
+void renderPaddedCell(float t) {
+  const uint16_t stepMs = 440 - uint16_t(speedControl) * 360 / 255;
+  if (millis() - lastCellStepAt >= stepMs) {
+    lastCellStepAt = millis();
+    cellX += cellDX; cellY += cellDY; cellZ += cellDZ;
+    if (cellX < 1 || cellX > 3) { cellDX = -cellDX; cellX = constrain(cellX, 1, 3); }
+    if (cellY < 1 || cellY > 3) { cellDY = -cellDY; cellY = constrain(cellY, 1, 3); }
+    if (cellZ < 1 || cellZ > 3) { cellDZ = -cellDZ; cellZ = constrain(cellZ, 1, 3); }
+  }
+  // All six outside surfaces form a dim grey padded room. The untouched
+  // interior coordinates (1..3 on x/y/z) form the red pixel's 3×3×3 chamber.
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    if (x == 0 || x == 4 || y == 0 || y == 4 || z == 0 || z == 4) {
+      const uint8_t pad = 28 + ((x + y + z) & 1) * 14;
+      setVoxel(x, y, z, CRGB(pad, pad, pad));
+    } else setVoxel(x, y, z, CRGB::Black);
+  }
+  setVoxel(cellX, cellY, cellZ, CRGB::Red);
+}
+
+void renderBlockRun(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const int32_t scroll = int32_t(t * 3.5f);
+  // The grass floor establishes the platform world.
+  for (uint8_t x = 0; x < N; ++x) for (uint8_t y = 0; y < N; ++y) {
+    setVoxel(x, y, 0, CHSV(78 + ((x + y + scroll) & 1) * 8, 235, 145));
+    const int32_t tile = x + y * 3 + scroll;
+    if ((tile % 11 + 11) % 11 < 3) {
+      setVoxel(x, y, 1, CRGB(140, 65, 12));
+      if (((tile + 1) % 7 + 7) % 7 == 0) setVoxel(x, y, 2, CRGB(210, 145, 25));
+    }
+  }
+  // A tiny red-and-skin runner jumps as the blocks pass beneath.
+  const uint8_t hop = uint8_t((sinf(t * 5.0f) + 1.0f) * 1.4f);
+  setVoxel(1, 2, 1 + hop, CRGB(230, 35, 20));
+  setVoxel(1, 2, 2 + hop, CRGB(255, 185, 110));
+  setVoxel(0, 2, 1 + hop, CRGB(230, 35, 20));
+}
+
+void renderParallax(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // Three independent depth bands move at different rates, producing parallax.
+  for (uint8_t layer = 0; layer < 3; ++layer) {
+    const uint8_t cadence = 2 + layer * 2;
+    const uint8_t step = uint8_t(t * cadence);
+    const uint8_t value = 65 + layer * 85;
+    for (uint8_t star = 0; star < 7; ++star) {
+      const uint8_t x = (star * 2 + step * (layer + 1)) % N;
+      const uint8_t y = (star * 3 + step + layer) % N;
+      const uint8_t z = (star + step * 2 + layer * 3) % N;
+      addVoxel(x, y, z, CHSV(145 + layer * 24, 120, value));
+    }
+  }
+}
+
+void renderTrenchRun(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const uint8_t pulse = 55 + uint8_t((sinf(t * 5.0f) + 1.0f) * 35.0f);
+  // A blue-grey square tunnel, with darker centre space and a moving red target.
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t edge = 0; edge < N; ++edge) {
+    const uint8_t shade = pulse + z * 8;
+    setVoxel(0, edge, z, CRGB(shade, shade, shade + 28));
+    setVoxel(4, edge, z, CRGB(shade, shade, shade + 28));
+    setVoxel(edge, 0, z, CRGB(shade, shade, shade + 28));
+    setVoxel(edge, 4, z, CRGB(shade, shade, shade + 28));
+  }
+  const int8_t targetZ = 4 - (int(t * 6.0f) % 7);
+  const int8_t targetX = 1 + (int(t * 2.0f) % 3);
+  const int8_t targetY = 1 + (int(t * 1.3f) % 3);
+  setVoxel(targetX, targetY, targetZ, CRGB::Red);
+  setVoxel(targetX, targetY, targetZ + 1, CRGB(90, 0, 0));
+  setVoxel(2, 2, 0, CRGB::White); // pilot reticle at the viewer end
+}
+
+void drawBoxFrame(const CRGB &colour) {
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const uint8_t sides = (x == 0 || x == 4) + (y == 0 || y == 4) + (z == 0 || z == 4);
+    if (sides >= 2) setVoxel(x, y, z, colour);
+  }
+}
+
+void renderRunningLegs(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const bool leftForward = sinf(t * 5.4f) > 0.0f;
+  const int8_t leftKnee = leftForward ? 1 : 3;
+  const int8_t rightKnee = leftForward ? 3 : 1;
+  const int8_t leftFoot = leftForward ? 0 : 4;
+  const int8_t rightFoot = leftForward ? 4 : 0;
+  // Compact stick runner: hip, two alternating knees, and wide-stepping feet.
+  setVoxel(2, 2, 4, CRGB(50, 120, 255));
+  setVoxel(2, 2, 3, CRGB(230, 50, 35));
+  setVoxel(1, 2, 3, CRGB(255, 175, 95));
+  setVoxel(3, 2, 3, CRGB(255, 175, 95));
+  setVoxel(1, leftKnee, 2, CRGB(245, 210, 80));
+  setVoxel(1, leftFoot, 0, CRGB(255, 255, 255));
+  setVoxel(3, rightKnee, 2, CRGB(245, 210, 80));
+  setVoxel(3, rightFoot, 0, CRGB(255, 255, 255));
+  setVoxel(0, leftFoot, 0, CRGB(120, 120, 120));
+  setVoxel(4, rightFoot, 0, CRGB(120, 120, 120));
+}
+
+void renderFairyBox(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  drawBoxFrame(CRGB(0, 110, 24));
+  // Three drifting fairy bodies with pulsing, asymmetric wings.
+  for (uint8_t fairy = 0; fairy < 3; ++fairy) {
+    const int8_t x = wrapCoordinate(int(t * (2.2f + fairy * 0.4f)) + fairy * 2);
+    const int8_t y = wrapCoordinate(int(t * (1.7f + fairy * 0.3f)) + fairy * 3);
+    const int8_t z = 1 + ((int(t * (1.2f + fairy * 0.2f)) + fairy) % 3);
+    const CRGB body = fairy == 0 ? CRGB(255, 210, 50) : (fairy == 1 ? CRGB(255, 80, 180) : CRGB(100, 220, 255));
+    setVoxel(x, y, z, body);
+    const uint8_t wingValue = 80 + uint8_t((sinf(t * 10.0f + fairy) + 1.0f) * 85.0f);
+    addVoxel(x - 1, y, z, CHSV(145 + fairy * 35, 120, wingValue));
+    addVoxel(x + 1, y, z, CHSV(145 + fairy * 35, 120, wingValue));
+    addVoxel(x, y, z + 1, CRGB(35, 95, 35));
+  }
+}
+
+void renderAquarium(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // Dim water volume behind a bright blue tank frame.
+  for (uint8_t z = 1; z < 4; ++z) for (uint8_t y = 1; y < 4; ++y) for (uint8_t x = 1; x < 4; ++x) {
+    const uint8_t water = 18 + uint8_t((sinf(t * 2.0f + x + y + z) + 1.0f) * 13.0f);
+    setVoxel(x, y, z, CHSV(151, 220, water));
+  }
+  drawBoxFrame(CRGB(0, 70, 255));
+  for (uint8_t fish = 0; fish < 2; ++fish) {
+    const bool swimsRight = fish == 0;
+    const int8_t x = wrapCoordinate(int(t * (2.5f + fish * 0.4f)) + fish * 3);
+    const int8_t y = 1 + fish * 2;
+    const int8_t z = 1 + ((int(t * 1.4f) + fish * 2) % 3);
+    const CRGB orange = fish == 0 ? CRGB(255, 85, 0) : CRGB(255, 145, 15);
+    setVoxel(x, y, z, orange);
+    setVoxel(x, y, z + 1, orange);
+    const int8_t tail = swimsRight ? x - 1 : x + 1;
+    addVoxel(tail, y, z, CRGB(170, 35, 0));
+    addVoxel(tail, y, z + 1, CRGB(170, 35, 0));
+    addVoxel(x, y + (swimsRight ? 1 : -1), z, CRGB(255, 220, 95));
+  }
+}
+
+void renderPyramid(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const uint8_t hue = 20 + uint8_t(t * 22.0f);
+  // Three deliberately discrete tiers: 3×3 base, 2×2 middle, one apex.
+  for (uint8_t x = 1; x <= 3; ++x) for (uint8_t y = 1; y <= 3; ++y) {
+    setVoxel(x, y, 0, CHSV(hue, 240, 120));
+  }
+  for (uint8_t x = 1; x <= 2; ++x) for (uint8_t y = 1; y <= 2; ++y) {
+    setVoxel(x, y, 1, CHSV(hue + 24, 245, 190));
+  }
+  const uint8_t apex = 140 + uint8_t((sinf(t * 8.0f) + 1.0f) * 57.0f);
+  setVoxel(2, 2, 2, CHSV(hue + 48, 110, apex));
+}
+
+// -----------------------------------------------------------------------------
 // 3×5 scrolling text banner around the four vertical outer faces
 // -----------------------------------------------------------------------------
 // Perimeter positions travel clockwise when viewed from above. Corners appear
@@ -484,6 +706,16 @@ void renderCurrentPattern() {
     case PATTERN_GLITTER: renderGlitter(t); break;
     case PATTERN_CORNER_CUBES: renderCornerCubes(t); break;
     case PATTERN_BANNER: renderBanner(t); break;
+    case PATTERN_BULLET_WALL: renderBulletWall(t); break;
+    case PATTERN_PADDED_CELL: renderPaddedCell(t); break;
+    case PATTERN_BLOCK_RUN: renderBlockRun(t); break;
+    case PATTERN_PARALLAX: renderParallax(t); break;
+    case PATTERN_TRENCH_RUN: renderTrenchRun(t); break;
+    case PATTERN_RUNNING_LEGS: renderRunningLegs(t); break;
+    case PATTERN_FAIRY_BOX: renderFairyBox(t); break;
+    case PATTERN_AQUARIUM: renderAquarium(t); break;
+    case PATTERN_PYRAMID: renderPyramid(t); break;
+    case PATTERN_MATRIX_DRIFT: renderMatrixDrift(t); break;
     default: break;
   }
 }
