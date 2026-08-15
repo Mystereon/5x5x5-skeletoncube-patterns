@@ -17,7 +17,7 @@ The firmware has no cloud dependency and uses only FastLED plus the Arduino-ESP3
 
 ## Upload and connect
 
-Install **FastLED** and the Espressif ESP32 Arduino core. Select the ESP32-C3 SuperMini board profile appropriate for your installation, open `CubeFXWeb.ino`, and upload.
+Install **FastLED** and the Espressif ESP32 Arduino core. Download or clone the complete `CubeFXWeb` folder, preserving both `CubeFXWeb.ino` and `CubeFXWebPage.h` side by side. Select the ESP32-C3 SuperMini board profile appropriate for your installation, open `CubeFXWeb.ino`, and upload. The page header is intentionally separate so Arduino’s sketch preprocessor does not misinterpret browser JavaScript as C++.
 
 On first boot the controller starts its own Wi-Fi access point:
 

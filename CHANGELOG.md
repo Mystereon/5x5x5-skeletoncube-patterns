@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.3 — CubeFXWeb Arduino build fix
+
+Moved CubeFXWeb’s browser page into `CubeFXWebPage.h`, preventing the Arduino sketch preprocessor from treating embedded JavaScript `function` declarations as C++. Restored the missing compact 3×5 `E` glyph so both font-table compile-time checks pass. The complete `CubeFXWeb` folder must now be kept together when opening the sketch.
+
 ## v0.3.2 — CubeFXWeb true 5×5 banner font
 
 Added a selectable **5×5 / Bold full-face** bitmap font alongside the existing compact 3×5 option. CubeFXWeb now exposes the `bannerFont` API parameter and a browser font selector; it preserves message, hue, and independent scroll speed controls.
