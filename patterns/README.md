@@ -43,6 +43,12 @@ This folder now contains the canonical **39 distinct visual effects**. Every num
 | 37 | [`Orange Fish Tank`](37_OrangeFishTank/) | Blue-framed water volume with orange fish. |
 | 38 | [`Three-Layer Pyramid`](38_ThreeLayerPyramid/) | A 3×3 base, 2×2 middle, and pulsing apex. |
 | 39 | [`Matrix Drift`](39_MatrixDrift/) | Intentional diagonal deep-green Matrix wash. |
+| 40 | [`Intense Fire`](40_IntenseFire/) | High-energy orange-and-gold fire volume. |
+| 41 | [`Magical Blue Fire`](41_MagicalBlueFire/) | Magical deep-blue and azure fire volume. |
+| 42 | [`Explosions`](42_Explosions/) | Repeated expanding explosion shells with fade-off. |
+| 43 | [`Launching Fireworks`](43_LaunchingFireworks/) | Rockets launch upward and burst across the top. |
+| 44 | [`Pixel Pasture`](44_PixelPasture/) | Green field, brown pixel cows, clouds on layers 3–4, and a layer-five sun. |
+| 45 | [`Red Matrix Rain`](45_RedMatrixRain/) | Straight-down bright red heads with deep crimson fading trails. |
 
 ## Controller examples
 

@@ -50,6 +50,12 @@ CUBEFX_UNIQUE = [
     ('37_OrangeFishTank', 'Orange Fish Tank', 'OrangeFishTank', 'Blue-framed water volume with orange fish.'),
     ('38_ThreeLayerPyramid', 'Three-Layer Pyramid', 'ThreeLayerPyramid', 'A 3×3 base, 2×2 middle, and pulsing apex.'),
     ('39_MatrixDrift', 'Matrix Drift', 'MatrixDrift', 'Intentional diagonal deep-green Matrix wash.'),
+    ('40_IntenseFire', 'Intense Fire', 'IntenseFire', 'High-energy orange-and-gold fire volume.'),
+    ('41_MagicalBlueFire', 'Magical Blue Fire', 'MagicalBlueFire', 'Magical deep-blue and azure fire volume.'),
+    ('42_Explosions', 'Explosions', 'Explosions', 'Repeated expanding explosion shells with fade-off.'),
+    ('43_LaunchingFireworks', 'Launching Fireworks', 'LaunchingFireworks', 'Rockets launch upward and burst across the top.'),
+    ('44_PixelPasture', 'Pixel Pasture', 'PixelPasture', 'Green field, brown pixel cows, clouds on layers 3–4, and a layer-five sun.'),
+    ('45_RedMatrixRain', 'Red Matrix Rain', 'RedMatrixRain', 'Straight-down bright red heads with deep crimson fading trails.'),
 ]
 
 # Preserve the two old controller examples in their own non-pattern location.

@@ -97,6 +97,12 @@ enum Pattern : uint8_t {
   PATTERN_AQUARIUM,
   PATTERN_PYRAMID,
   PATTERN_MATRIX_DRIFT,
+  PATTERN_INTENSE_FIRE,
+  PATTERN_BLUE_FIRE,
+  PATTERN_EXPLOSIONS,
+  PATTERN_FIREWORKS,
+  PATTERN_PIXEL_PASTURE,
+  PATTERN_RED_MATRIX_RAIN,
   PATTERN_COUNT
 };
 
@@ -105,7 +111,8 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Twin Spirals", "Wrapping Comets", "Self-playing Pong", "Conway 3-D Life",
   "Cloud Volume", "White Glitter", "Corner Cubes", "3x5 Perimeter Banner",
   "Bullet Wall", "Padded Cell", "Block Run", "Parallax Starfield", "Trench Run",
-  "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift"
+  "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
+  "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain"
 };
 
 Pattern currentPattern = PATTERN_COMETS;
@@ -170,6 +177,21 @@ void renderMatrixRain(float t) {
   }
 }
 
+void renderRedMatrixRain(float t) {
+  fadeToBlackBy(leds, NUM_LEDS, 70);
+  const uint8_t frame = uint8_t(t * 8.0f);
+  for (uint8_t x = 0; x < N; ++x) {
+    for (uint8_t y = 0; y < N; ++y) {
+      const int8_t head = (MATRIX_COLUMN_PHASE[y][x] + frame) % (N + 5) - 2;
+      // A hot red leading point followed by successively deeper crimson trails.
+      addVoxel(x, y, head, CRGB(255, 42, 12));
+      addVoxel(x, y, head - 1, CRGB(155, 5, 2));
+      addVoxel(x, y, head - 2, CRGB(70, 0, 0));
+      addVoxel(x, y, head - 3, CRGB(24, 0, 0));
+    }
+  }
+}
+
 void renderMatrixDrift(float t) {
   fadeToBlackBy(leds, NUM_LEDS, 52);
   const uint8_t frame = uint8_t(t * 6.0f);
@@ -209,6 +231,120 @@ void renderFire(float t) {
       }
     }
   }
+}
+
+void renderIntenseFire(float t) {
+  const uint16_t drift = uint16_t(t * 72.0f);
+  for (uint8_t z = 0; z < N; ++z) {
+    for (uint8_t y = 0; y < N; ++y) {
+      for (uint8_t x = 0; x < N; ++x) {
+        const uint8_t noise = inoise8(x * 92 + drift, y * 92 - drift / 3, z * 78 - drift * 4);
+        const uint8_t height = uint8_t(255 - z * 46);
+        const uint8_t heat = scale8(noise, height);
+        CRGB flame = HeatColor(heat);
+        if (heat > 190) flame += CRGB(70, 20, 0);
+        if (heat > 235) flame += CRGB(35, 45, 0);
+        setVoxel(x, y, z, flame);
+      }
+    }
+  }
+}
+
+void renderBlueFire(float t) {
+  const uint16_t drift = uint16_t(t * 82.0f);
+  for (uint8_t z = 0; z < N; ++z) {
+    for (uint8_t y = 0; y < N; ++y) {
+      for (uint8_t x = 0; x < N; ++x) {
+        const uint8_t noise = inoise8(x * 88 + drift, y * 88 + drift / 4, z * 92 - drift * 5);
+        const uint8_t power = scale8(noise, uint8_t(255 - z * 44));
+        const uint8_t hue = 148 + (power >> 4);  // azure through blue-violet.
+        CRGB flame = CHSV(hue, 245, power);
+        if (power > 210) flame += CRGB(0, 45, 75);
+        setVoxel(x, y, z, flame);
+      }
+    }
+  }
+}
+
+void renderExplosions(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const float phase = fmodf(t * 1000.0f, 3100.0f);
+  const float radius = phase < 2200.0f ? phase * 3.6f / 2200.0f : 3.6f;
+  const float fade = phase < 2200.0f ? 1.0f : (3100.0f - phase) / 900.0f;
+  const int8_t cx = 2 + (uint8_t(t * 0.35f) & 1);
+  const int8_t cy = 2;
+  const int8_t cz = 2;
+  for (int8_t z = 0; z < N; ++z) for (int8_t y = 0; y < N; ++y) for (int8_t x = 0; x < N; ++x) {
+    const float dx = x - cx, dy = y - cy, dz = z - cz;
+    const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+    const float shell = fabsf(distance - radius);
+    if (shell < 0.72f) {
+      const uint8_t value = uint8_t(255.0f * fade * (1.0f - shell / 0.72f));
+      const uint8_t hue = distance < radius * 0.45f ? 18 : 5;
+      setVoxel(x, y, z, CHSV(hue, 245, value));
+    } else if (distance < radius && ((x * 13 + y * 7 + z * 3 + uint8_t(phase)) & 3) == 0) {
+      setVoxel(x, y, z, CRGB(uint8_t(85 * fade), 0, 0));
+    }
+  }
+}
+
+void renderFireworks(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const float phase = fmodf(t * 1000.0f, 3600.0f);
+  const uint8_t launchX = 1 + (uint8_t(t * 0.23f) % 3);
+  const uint8_t launchY = 1 + (uint8_t(t * 0.17f) % 3);
+  if (phase < 1200.0f) {
+    const int8_t z = constrain(int8_t(phase / 240.0f), 0, 4);
+    setVoxel(launchX, launchY, z, CRGB::White);
+    if (z > 0) setVoxel(launchX, launchY, z - 1, CRGB(120, 35, 0));
+    return;
+  }
+
+  const float age = (phase - 1200.0f) / 2400.0f;
+  const float radius = age * 3.5f;
+  const uint8_t value = uint8_t(255.0f * (1.0f - age));
+  const int8_t directions[14][3] = {
+    {1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1},
+    {1,1,0},{-1,1,0},{1,0,1},{-1,0,1},{0,1,1},{0,-1,1},{1,-1,0},{-1,-1,0}
+  };
+  const uint8_t hue = uint8_t(18 + uint8_t(t * 11.0f));
+  for (uint8_t i = 0; i < 14; ++i) {
+    const int8_t x = int8_t(roundf(launchX + directions[i][0] * radius));
+    const int8_t y = int8_t(roundf(launchY + directions[i][1] * radius));
+    const int8_t z = int8_t(roundf(4 + directions[i][2] * radius));
+    setVoxel(x, y, z, CHSV(hue + i * 11, 225, value));
+  }
+}
+
+void renderPixelPasture(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // Layer 1: an uneven bright-green field.
+  for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x)
+    setVoxel(x, y, 0, ((x + y) & 1) ? CRGB(0, 125, 15) : CRGB(0, 92, 8));
+
+  // Layer 2: two deliberately blocky brown cows with pale patches.
+  const CRGB cow(112, 48, 12);
+  const CRGB patch(190, 155, 95);
+  setVoxel(0, 1, 1, cow); setVoxel(1, 1, 1, cow); setVoxel(0, 2, 1, cow);
+  setVoxel(1, 2, 1, patch); setVoxel(0, 0, 1, CRGB(60, 28, 8));
+  setVoxel(3, 2, 1, cow); setVoxel(4, 2, 1, cow); setVoxel(3, 3, 1, patch);
+  setVoxel(4, 3, 1, cow); setVoxel(4, 1, 1, CRGB(60, 28, 8));
+
+  // Layers 3–4: slow white clouds drift across the sky.
+  const int8_t cloudShift = int8_t(uint8_t(t * 1.4f) % N);
+  const CRGB cloud(105, 150, 190);
+  for (uint8_t z = 2; z <= 3; ++z) {
+    setVoxel((0 + cloudShift) % N, 0, z, cloud);
+    setVoxel((1 + cloudShift) % N, 0, z, cloud);
+    setVoxel((1 + cloudShift) % N, 1, z, CRGB(145, 185, 220));
+    setVoxel((3 + cloudShift) % N, 4, z, cloud);
+    setVoxel((4 + cloudShift) % N, 4, z, cloud);
+  }
+
+  // Layer 5: a 3×3 golden sun in the upper-front corner.
+  const uint8_t pulse = 185 + (sin8(uint8_t(t * 18.0f)) >> 2);
+  for (uint8_t y = 2; y < N; ++y) for (uint8_t x = 2; x < N; ++x)
+    setVoxel(x, y, 4, CHSV(30, 230, pulse));
 }
 
 void renderSpirals(float t) {
@@ -643,7 +779,9 @@ void renderBanner(float t) {
   const uint16_t stepMs = 430 - uint16_t(bannerScrollSpeed) * 360 / 255;
   if (millis() - lastBannerStepAt >= stepMs) {
     lastBannerStepAt = millis();
-    bannerOffset = (bannerOffset + 1) % textColumns;
+    // Glyphs already read forward; travel the message in the opposite direction
+    // from the earlier build so the whole phrase now progresses forward in view.
+    bannerOffset = (bannerOffset + textColumns - 1) % textColumns;
   }
 
   for (uint8_t p = 0; p < PERIMETER_COLUMNS; ++p) {
@@ -653,9 +791,9 @@ void renderBanner(float t) {
     if (glyphColumn == glyphWidth) continue; // inter-character spacer
 
     for (uint8_t z = 0; z < N; ++z) {
-      // The physical perimeter increases opposite to the font's screen-space
-      // x-axis. Reverse the sampled glyph column, not the cube traversal, so
-      // both 3×5 and 5×5 text reads forward around the same clockwise loop.
+      // Perimeter p runs opposite to the font's screen-space x-axis. Reverse
+      // glyph sampling to preserve forward-facing 3×5 and 5×5 letters; only
+      // bannerOffset above controls the visible travel direction.
       const uint8_t sampledColumn = glyphWidth - 1 - glyphColumn;
       if (!bannerGlyphPixel(bannerText[characterIndex], sampledColumn, N - 1 - z)) continue;
       setPerimeterVoxel(p, z, CHSV(bannerHue + z * 4, 255, 255));
@@ -688,6 +826,12 @@ void renderCurrentPattern() {
     case PATTERN_AQUARIUM: renderAquarium(t); break;
     case PATTERN_PYRAMID: renderPyramid(t); break;
     case PATTERN_MATRIX_DRIFT: renderMatrixDrift(t); break;
+    case PATTERN_INTENSE_FIRE: renderIntenseFire(t); break;
+    case PATTERN_BLUE_FIRE: renderBlueFire(t); break;
+    case PATTERN_EXPLOSIONS: renderExplosions(t); break;
+    case PATTERN_FIREWORKS: renderFireworks(t); break;
+    case PATTERN_PIXEL_PASTURE: renderPixelPasture(t); break;
+    case PATTERN_RED_MATRIX_RAIN: renderRedMatrixRain(t); break;
     default: break;
   }
 }

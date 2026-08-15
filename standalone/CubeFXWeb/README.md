@@ -8,7 +8,7 @@ The firmware has no cloud dependency and uses only FastLED plus the Arduino-ESP3
 
 | Area | Included |
 |---|---|
-| Pattern gallery | 22 cube-aware effects: the original abstract, simulation, and banner patterns plus eight animated micro-world scenes, a three-layer Pyramid, and two complementary Matrix modes. |
+| Pattern gallery | 28 cube-aware effects: the original abstract, simulation, banner, micro-world scenes, high-impact fire and particle effects, a three-layer Pyramid, and three complementary Matrix modes. |
 | Browser controls | Pattern selection, higher-range motion speed, a 30–120 FPS frame cap, automatic dwell time, auto/manual switch, next pattern, 3-D Life reseed, and banner text/colour/scroll-speed controls. |
 | Networking | Access-point mode by default; optional connection to an existing Wi-Fi network. |
 | Physical controls | GPIO4 advances a pattern in manual mode; GPIO8 toggles auto/manual. |
@@ -21,6 +21,7 @@ The firmware has no cloud dependency and uses only FastLED plus the Arduino-ESP3
 |---|---|
 | **3-D Matrix Rain** | Independent streams fall **straight down Z** in each `(x,y)` column. Bodies are deep emerald, trails approach black-green, and only stream heads reach yellow-green—never white. |
 | **Matrix Drift** | The earlier diagonal green wash is intentionally retained as its own pattern, using a coordinated diagonal phase across the volume. |
+| **Red Matrix Rain** | Independent straight-down red streams with hot scarlet heads and progressively deeper crimson trails fading to black. |
 
 ## Micro-world scenes
 
@@ -37,6 +38,11 @@ The new scenes are deliberately written as direct 125-voxel renderers rather tha
 | **Fairies in Green Box** | A green wireframe enclosure contains three drifting, wing-pulsing fairy lights. |
 | **Orange Fish Tank** | A blue-framed aquarium contains shifting water and two orange fish with tails. |
 | **Three-Layer Pyramid** | A discrete **3×3 base**, **2×2 middle tier**, and pulsing single apex form a compact illuminated pyramid. |
+| **Intense Fire** | High-density orange-and-gold noise fire with bright hot cores. |
+| **Magical Blue Fire** | Deep blue, azure, and blue-violet flames with icy bright cores. |
+| **Explosions** | Expanding spherical orange-red shock shells and a low-red fade-off. |
+| **Launching Fireworks** | A rocket rises to the top layer, then bursts into a multicolour 3-D star. |
+| **Pixel Pasture** | A green base layer, brown pixel cows on layer two, drifting clouds on layers three and four, and a golden layer-five sun. |
 
 ## Upload and connect
 
@@ -94,7 +100,7 @@ Use the **Control** tab’s new **Frame Rate Cap** slider. For immediate API con
 
 ## Exterior text banner: 3×5 and 5×5 fonts
 
-The **Perimeter Banner** pattern renders bitmap text across the cube’s five vertical voxels and scrolls it continuously around the **four outside faces**. Its 16-column ring path follows the rear, right, front, and left sides clockwise when viewed from above. Corners are assigned only once, so the text remains continuous as it turns each corner, and the glyph columns are oriented to read forward rather than mirrored along that path.
+The **Perimeter Banner** pattern renders bitmap text across the cube’s five vertical voxels and scrolls it continuously around the **four outside faces**. Its 16-column ring path follows the rear, right, front, and left sides clockwise when viewed from above. Corners are assigned only once, so the text remains continuous as it turns each corner. Glyph columns remain forward-facing, while the message travel direction has been reversed from earlier builds so words progress forward in view rather than backwards.
 
 Two font modes are available in **Control → 3×5 Perimeter Banner**:
 

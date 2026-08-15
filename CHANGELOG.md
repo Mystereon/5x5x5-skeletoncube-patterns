@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.4.0 — High-impact scenes and corrected banner motion
+
+Expanded the canonical library from 39 to **45 distinct standalone patterns**. Added Intense Fire, Magical Blue Fire, Explosions, Launching Fireworks, Pixel Pasture, and Red Matrix Rain. Pixel Pasture places a green base on layer one, blocky brown cows on layer two, clouds on layers three and four, and a golden sun on layer five. Corrected CubeFXWeb banner travel while retaining the forward-facing 3×5 and 5×5 glyph fix.
+
 ## v0.3.9 — Canonical standalone patterns library
 
 Reorganized `patterns/` as the canonical collection of **39 distinct visual effects**: original effects 01–28 plus CubeFX-only additions 29–39. Every numbered project is now directly uploadable and self-contained within its own folder. Moved the two ESP32-C3 hardware-controller examples out of the visual pattern sequence to `controllers/`, and removed duplicate CubeFX pattern numbering.

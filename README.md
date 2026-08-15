@@ -47,13 +47,15 @@ The master sketch contains a sequence of **28 effects**. Each receives a deliber
 SkeletonCubePatterns/                 # The self-playing master Arduino sketch
   SkeletonCubePatterns.ino
   CubeTypes.h
-patterns/                             # Canonical 39 standalone visual effects
+patterns/                             # Canonical 45 standalone visual effects
   01_RedVectorCube/
   ...
   28_WrappingComets/
   29_PerimeterBanner/
   ...
   39_MatrixDrift/
+  ...
+  45_RedMatrixRain/
 controllers/                           # ESP32-C3 hardware control examples
   29_ESP32C3_NextPatternButton/
   30_ESP32C3_DualButtonController/
@@ -61,16 +63,16 @@ standalone/                            # Standalone application-style sketches
   Conway3DLife/
   CubeFXWeb/
   CubeFXPatternDemos/                  # Alternate CubeFX demo source collection
-tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–39
+tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–45
 ```
 
-[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **39 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–39 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
+[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **45 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–45 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
-[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 browser controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes an HTTP API for 22 built-in 3-D patterns—including straight-down Matrix Rain, diagonal Matrix Drift, Bullet Wall particle impacts, Padded Cell, scrolling micro-worlds, parallax, a fish tank, and a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 browser controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes an HTTP API for 28 built-in 3-D patterns—including green and red Matrix rains, Matrix Drift, Bullet Wall particle impacts, Padded Cell, scrolling micro-worlds, high-impact fire, explosions, fireworks, Pixel Pasture, parallax, a fish tank, and a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
 
-[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is now [`patterns/`](patterns/): 01–28 are the original effects and 29–39 are the 11 CubeFX-only additions.
+[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is now [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, and 40–45 add high-impact fire, explosions, fireworks, the Pixel Pasture scene, and Red Matrix Rain.
 
 ## Hardware assumptions
 

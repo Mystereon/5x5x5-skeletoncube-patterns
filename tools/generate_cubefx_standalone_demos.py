@@ -28,6 +28,12 @@ DEMOS = [
     ('20_OrangeFishTank', 'OrangeFishTank', 'PATTERN_AQUARIUM', 'Blue-framed water volume with two orange fish.'),
     ('21_ThreeLayerPyramid', 'ThreeLayerPyramid', 'PATTERN_PYRAMID', 'A 3×3 base, 2×2 middle tier, and pulsing apex.'),
     ('22_MatrixDrift', 'MatrixDrift', 'PATTERN_MATRIX_DRIFT', 'The intentional diagonal deep-green Matrix wash.'),
+    ('23_IntenseFire', 'IntenseFire', 'PATTERN_INTENSE_FIRE', 'High-energy orange-and-gold fire volume.'),
+    ('24_MagicalBlueFire', 'MagicalBlueFire', 'PATTERN_BLUE_FIRE', 'Magical deep-blue and azure fire volume.'),
+    ('25_Explosions', 'Explosions', 'PATTERN_EXPLOSIONS', 'Repeated expanding explosion shells with fade-off.'),
+    ('26_LaunchingFireworks', 'LaunchingFireworks', 'PATTERN_FIREWORKS', 'Rockets launch upward and burst across the top.'),
+    ('27_PixelPasture', 'PixelPasture', 'PATTERN_PIXEL_PASTURE', 'Green field, brown pixel cows, clouds, and a layer-five sun.'),
+    ('28_RedMatrixRain', 'RedMatrixRain', 'PATTERN_RED_MATRIX_RAIN', 'Straight-down bright red heads with deep crimson fading trails.'),
 ]
 
 source = SOURCE.read_text(encoding='utf-8')

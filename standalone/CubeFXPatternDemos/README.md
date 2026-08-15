@@ -28,6 +28,12 @@ All demos default to the established hardware map: 125 GRB WS2812B LEDs, `DATA_P
 | 20 | [`OrangeFishTank`](OrangeFishTank/) | Blue-framed water volume with two orange fish. |
 | 21 | [`ThreeLayerPyramid`](ThreeLayerPyramid/) | A 3×3 base, 2×2 middle tier, and pulsing apex. |
 | 22 | [`MatrixDrift`](MatrixDrift/) | The intentional diagonal deep-green Matrix wash. |
+| 23 | [`IntenseFire`](IntenseFire/) | High-energy orange-and-gold fire volume. |
+| 24 | [`MagicalBlueFire`](MagicalBlueFire/) | Magical deep-blue and azure fire volume. |
+| 25 | [`Explosions`](Explosions/) | Repeated expanding explosion shells with fade-off. |
+| 26 | [`LaunchingFireworks`](LaunchingFireworks/) | Rockets launch upward and burst across the top. |
+| 27 | [`PixelPasture`](PixelPasture/) | Green field, brown pixel cows, clouds, and a layer-five sun. |
+| 28 | [`RedMatrixRain`](RedMatrixRain/) | Straight-down bright red heads with deep crimson fading trails. |
 
 ## Upload
 
