@@ -1,6 +1,6 @@
 # Standalone pattern library
 
-This folder now contains the canonical **39 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.
+This folder now contains the canonical **48 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.
 
 | # | Pattern | Description |
 |---:|---|---|
@@ -15,7 +15,7 @@ This folder now contains the canonical **39 distinct visual effects**. Every num
 | 09 | [`Matrix Rain`](09_MatrixRain/) | Dense classic green Matrix-style rain. |
 | 10 | [`Corner Cubes`](10_CornerCubes/) | Eight colour-shifting 2×2×2 corner cubes. |
 | 11 | [`White Glitter`](11_WhiteGlitter/) | Random white voxel sparkle with trails. |
-| 12 | [`Self-playing Pong`](12_Pong/) | Self-playing 3-D Pong with opposing paddles. |
+| 12 | [`Single-player Pong`](12_Pong/) | Player-controlled Pong: GPIO4 moves a full-height rear paddle left; GPIO8 moves it right. |
 | 13 | [`3-D Tetris`](13_Tetris/) | Autoplaying falling polycubes in a 5×5×5 well. |
 | 14 | [`Blinking Eye`](14_BlinkingEye/) | A tracked 3-D eye that periodically blinks. |
 | 15 | [`DNA Helix`](15_DNAHelix/) | Animated dual-strand DNA helix. |
@@ -49,6 +49,9 @@ This folder now contains the canonical **39 distinct visual effects**. Every num
 | 43 | [`Launching Fireworks`](43_LaunchingFireworks/) | Rockets launch upward and burst across the top. |
 | 44 | [`Pixel Pasture`](44_PixelPasture/) | Green field, brown pixel cows, clouds on layers 3–4, and a layer-five sun. |
 | 45 | [`Red Matrix Rain`](45_RedMatrixRain/) | Straight-down bright red heads with deep crimson fading trails. |
+| 46 | [`Voxel Minesweeper`](46_VoxelMinesweeper/) | Falling probes land on base targets and make orange 3×3×3 impact bursts. |
+| 47 | [`Big Moon & Stars`](47_BigMoonStars/) | A large shaded moon surrounded by gently twinkling blue stars. |
+| 48 | [`Nixie Tube`](48_NixieTube/) | Dull orange inactive tube segments and bright orange 0–9 numerals. |
 
 ## Controller examples
 

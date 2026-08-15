@@ -23,8 +23,8 @@
     index = z * 25 + y * 5 + x
 
   Optional buttons (normally-open switches to GND)
-    GPIO4: NEXT pattern in manual mode
-    GPIO8: AUTO / MANUAL toggle
+    GPIO4 / Button 1: short = pattern-aware primary action; long = banner mode.
+    GPIO8 / Button 2: short = pattern-aware secondary action; long = next pattern.
 
   GPIO8 is an ESP32-C3 boot-strapping pin: RELEASE it while resetting or
   powering up. Use a 10 kΩ pull-up from GPIO8 to 3V3 if your board does not
@@ -33,6 +33,8 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include <BLEDevice.h>
+#include <BLE2902.h>
 #include <FastLED.h>
 #include <esp_system.h>
 #include <math.h>
@@ -50,6 +52,15 @@ const char *AP_PASSWORD = "cubecontrol";  // 8+ characters required by WPA2.
 WebServer web(80);
 bool usingAccessPoint = true;
 String networkAddress = "192.168.4.1";
+
+// Android CubeFX BLE controller contract. The same UUIDs are defined in
+// cubefx_ble_controller/lib/ble-protocol.ts. Commands are compact JSON over a
+// write-without-response characteristic; status is available via read/notify.
+constexpr char CUBEFX_BLE_SERVICE_UUID[] = "6c75a300-7b1d-4f29-a221-000000000001";
+constexpr char CUBEFX_BLE_COMMAND_UUID[] = "6c75a300-7b1d-4f29-a221-000000000002";
+constexpr char CUBEFX_BLE_STATUS_UUID[] = "6c75a300-7b1d-4f29-a221-000000000003";
+BLECharacteristic *bleStatusCharacteristic = nullptr;
+BLEServer *bleServer = nullptr;
 
 // -----------------------------------------------------------------------------
 // Cube configuration and physical mapper
@@ -131,16 +142,20 @@ enum Pattern : uint8_t {
   PATTERN_FIREWORKS,
   PATTERN_PIXEL_PASTURE,
   PATTERN_RED_MATRIX_RAIN,
+  PATTERN_MINESWEEPER,
+  PATTERN_MOON_STARS,
+  PATTERN_NIXIE_TUBE,
   PATTERN_COUNT
 };
 
 const char *const patternNames[PATTERN_COUNT] = {
   "Red Vector Cube", "3-D Matrix Rain", "Neon Plasma", "Volume Fire",
-  "Twin Spirals", "Wrapping Comets", "Self-playing Pong", "Conway 3-D Life",
+  "Twin Spirals", "Wrapping Comets", "Single-player Pong", "Conway 3-D Life",
   "Cloud Volume", "White Glitter", "Corner Cubes", "3x5 Perimeter Banner",
   "Bullet Wall", "Padded Cell", "Block Run", "Parallax Starfield", "Trench Run",
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
-  "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain"
+  "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
+  "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -375,6 +390,110 @@ void renderPixelPasture(float t) {
     setVoxel(x, y, 4, CHSV(30, 230, pulse));
 }
 
+// Voxel Minesweeper: a probe falls to illuminated base targets. A target hit
+// becomes a vivid orange 3×3×3 impact burst before the next drop begins.
+const uint8_t MINE_TARGETS[5][2] = {{0, 1}, {1, 4}, {2, 2}, {3, 0}, {4, 3}};
+uint8_t mineTargetIndex = 0;
+int8_t mineDropX = 0, mineDropY = 1, mineDropZ = 4;
+uint32_t mineLastStepAt = 0;
+bool mineBurstActive = false;
+int8_t mineBurstX = 0, mineBurstY = 1;
+uint32_t mineBurstAt = 0;
+
+void resetMineDrop() {
+  mineDropX = MINE_TARGETS[mineTargetIndex][0];
+  mineDropY = MINE_TARGETS[mineTargetIndex][1];
+  mineDropZ = 4;
+  mineBurstActive = false;
+}
+
+void triggerMineBurst(int8_t x, int8_t y) {
+  mineBurstX = x; mineBurstY = y;
+  mineBurstAt = millis();
+  mineBurstActive = true;
+}
+
+void renderMinesweeper(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  for (uint8_t target = 0; target < 5; ++target) {
+    const bool armed = target == mineTargetIndex;
+    setVoxel(MINE_TARGETS[target][0], MINE_TARGETS[target][1], 0, armed ? CRGB(72, 230, 35) : CRGB(12, 60, 12));
+  }
+  if (mineBurstActive) {
+    const uint16_t age = millis() - mineBurstAt;
+    if (age >= 540) {
+      mineTargetIndex = (mineTargetIndex + 1) % 5;
+      resetMineDrop();
+    } else {
+      const uint8_t value = uint8_t(255 - (uint32_t(age) * 255 / 540));
+      for (int8_t z = 0; z <= 2; ++z) for (int8_t y = -1; y <= 1; ++y) for (int8_t x = -1; x <= 1; ++x) {
+        addVoxel(mineBurstX + x, mineBurstY + y, z, CHSV(18 + (x + y + z) * 2, 250, value));
+      }
+      return;
+    }
+  }
+  const uint16_t stepMs = 480 - uint16_t(speedControl) * 330 / 255;
+  if (millis() - mineLastStepAt >= stepMs) {
+    mineLastStepAt = millis();
+    --mineDropZ;
+    if (mineDropZ < 0) triggerMineBurst(mineDropX, mineDropY);
+  }
+  setVoxel(mineDropX, mineDropY, mineDropZ, CRGB(255, 165, 18));
+  addVoxel(mineDropX, mineDropY, mineDropZ + 1, CRGB(95, 20, 0));
+}
+
+void renderMoonStars(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const float cx = 1.30f, cy = 2.15f, cz = 3.00f;
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const float dx = x - cx, dy = y - cy, dz = z - cz;
+    const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+    if (distance < 2.15f) {
+      const uint8_t shade = uint8_t(220 - distance * 56 - max(0.0f, dx) * 34);
+      setVoxel(x, y, z, CRGB(shade, shade, uint8_t(shade * 0.82f)));
+    }
+  }
+  for (uint8_t star = 0; star < 12; ++star) {
+    const uint8_t x = (star * 2 + 3) % N, y = (star * 3 + 1) % N, z = (star * 4 + 2) % N;
+    const float dx = x - cx, dy = y - cy, dz = z - cz;
+    if (sqrtf(dx * dx + dy * dy + dz * dz) > 2.15f) {
+      const uint8_t twinkle = 85 + (sin8(uint8_t(t * 24 + star * 31)) >> 1);
+      addVoxel(x, y, z, CRGB(twinkle / 3, twinkle / 2, twinkle));
+    }
+  }
+}
+
+const uint8_t NIXIE_SEGMENTS[10] = {
+  B00111111, B00000110, B01011011, B01001111, B01100110,
+  B01101101, B01111101, B00000111, B01111111, B01101111
+};
+
+void drawNixieSegment(uint8_t segment, const CRGB &colour) {
+  // Active segment order is a,b,c,d,e,f,g on the cube's y=4 front face.
+  const int8_t startX[7] = {1, 4, 4, 1, 0, 0, 1};
+  const int8_t startZ[7] = {4, 3, 0, 0, 0, 3, 2};
+  const int8_t deltaX[7] = {1, 0, 0, 1, 0, 0, 1};
+  const int8_t deltaZ[7] = {0, 1, 1, 0, 1, 1, 0};
+  const uint8_t length[7] = {3, 2, 2, 3, 2, 2, 3};
+  for (uint8_t pixel = 0; pixel < length[segment]; ++pixel) {
+    const int8_t x = startX[segment] + deltaX[segment] * pixel;
+    const int8_t z = startZ[segment] + deltaZ[segment] * pixel;
+    setVoxel(x, 4, z, colour);
+    addVoxel(x, 3, z, CRGB(colour.r / 7, colour.g / 7, 0));
+  }
+}
+
+void renderNixieTube(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  const uint16_t dwellMs = 1600 - uint16_t(speedControl) * 1000 / 255;
+  const uint8_t digit = (millis() / dwellMs) % 10;
+  const uint8_t pulse = 205 + (sin8(uint8_t(t * 38)) >> 2);
+  for (uint8_t segment = 0; segment < 7; ++segment) {
+    const bool active = NIXIE_SEGMENTS[digit] & (1 << segment);
+    drawNixieSegment(segment, active ? CRGB(pulse, 70 + pulse / 4, 4) : CRGB(28, 7, 0));
+  }
+}
+
 void renderSpirals(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (uint8_t z = 0; z < N; ++z) {
@@ -409,25 +528,44 @@ void renderComets(float t) {
   }
 }
 
-int8_t pongX = 2, pongY = 2, pongZ = 2;
-int8_t pongDX = 1, pongDY = 1, pongDZ = 1;
+int8_t pongX = 2, pongY = 2;
+int8_t pongDX = 1, pongDY = 1;
+int8_t playerPaddleX = 2;
+int8_t cpuPaddleX = 2;
+uint8_t pongPlayerScore = 0, pongCpuScore = 0;
 uint32_t lastPongAt = 0;
+void resetPongRound(int8_t direction) {
+  pongX = 2; pongY = 2;
+  pongDX = random8(2) ? 1 : -1;
+  pongDY = direction;
+}
+
 void renderPong(float t) {
-  const uint16_t stepMs = 1300 - speedControl * 4;
+  const uint16_t stepMs = 350 - uint16_t(speedControl) * 250 / 255;
   if (millis() - lastPongAt >= stepMs) {
     lastPongAt = millis();
-    pongX += pongDX; pongY += pongDY; pongZ += pongDZ;
-    if (pongX <= 0 || pongX >= 4) pongDX = -pongDX;
-    if (pongY <= 0 || pongY >= 4) pongDY = -pongDY;
-    if (pongZ <= 0 || pongZ >= 4) pongDZ = -pongDZ;
-    pongX = constrain(pongX, 0, 4); pongY = constrain(pongY, 0, 4); pongZ = constrain(pongZ, 0, 4);
+    pongX += pongDX; pongY += pongDY;
+    if (pongX <= 0 || pongX >= 4) { pongDX = -pongDX; pongX = constrain(pongX, 0, 4); }
+    // The CPU tracks the ball, but only one row per ball tick so it is beatable.
+    if (cpuPaddleX < pongX) ++cpuPaddleX;
+    else if (cpuPaddleX > pongX) --cpuPaddleX;
+    if (pongY <= 0) {
+      if (pongX == playerPaddleX) { pongY = 0; pongDY = 1; }
+      else { ++pongCpuScore; resetPongRound(1); }
+    }
+    if (pongY >= 4) {
+      if (pongX == cpuPaddleX) { pongY = 4; pongDY = -1; }
+      else { ++pongPlayerScore; resetPongRound(-1); }
+    }
   }
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  for (uint8_t y = 1; y <= 3; ++y) for (uint8_t z = 1; z <= 3; ++z) {
-    setVoxel(0, y, z, CRGB::Blue);
-    setVoxel(4, y, z, CRGB::Red);
-  }
-  setVoxel(pongX, pongY, pongZ, CRGB::White);
+  // A genuine full-height z-axis paddle slides left/right across the rear wall.
+  // Short Button 1 moves it left; short Button 2 moves it right.
+  for (uint8_t z = 0; z < N; ++z) setVoxel(playerPaddleX, 0, z, CRGB::Aqua);
+  for (uint8_t z = 0; z < N; ++z) setVoxel(cpuPaddleX, 4, z, CRGB::Red);
+  setVoxel(pongX, pongY, 2, CRGB::White);
+  for (uint8_t score = 0; score < min(pongPlayerScore, uint8_t(3)); ++score) setVoxel(score, 0, 4, CRGB::Aqua);
+  for (uint8_t score = 0; score < min(pongCpuScore, uint8_t(3)); ++score) setVoxel(4 - score, 4, 4, CRGB::Red);
 }
 
 bool life[N][N][N];
@@ -860,6 +998,9 @@ void renderCurrentPattern() {
     case PATTERN_FIREWORKS: renderFireworks(t); break;
     case PATTERN_PIXEL_PASTURE: renderPixelPasture(t); break;
     case PATTERN_RED_MATRIX_RAIN: renderRedMatrixRain(t); break;
+    case PATTERN_MINESWEEPER: renderMinesweeper(t); break;
+    case PATTERN_MOON_STARS: renderMoonStars(t); break;
+    case PATTERN_NIXIE_TUBE: renderNixieTube(t); break;
     default: break;
   }
 }
@@ -871,35 +1012,114 @@ void advancePattern() {
 }
 
 // -----------------------------------------------------------------------------
-// Optional hardware buttons: GPIO4 next; GPIO8 auto/manual
+// Optional hardware buttons: GPIO4 pattern-primary/banner; GPIO8
+// pattern-secondary/next. Long presses are global; short presses are local.
 // -----------------------------------------------------------------------------
-constexpr uint8_t NEXT_BUTTON_PIN = 4;
-constexpr uint8_t AUTO_BUTTON_PIN = 8;
+constexpr uint8_t PRIMARY_BUTTON_PIN = 4;
+constexpr uint8_t SECONDARY_BUTTON_PIN = 8;
 constexpr uint16_t BUTTON_DEBOUNCE_MS = 35;
-bool nextRaw = HIGH, nextStable = HIGH, autoRaw = HIGH, autoStable = HIGH;
-uint32_t nextChangedAt = 0, autoChangedAt = 0;
+constexpr uint16_t BUTTON_LONG_PRESS_MS = 650;
+bool primaryRaw = HIGH, primaryStable = HIGH, secondaryRaw = HIGH, secondaryStable = HIGH;
+uint32_t primaryChangedAt = 0, secondaryChangedAt = 0;
+uint32_t primaryPressedAt = 0, secondaryPressedAt = 0;
+
+void activateBannerMode() {
+  autoCycle = false;
+  currentPattern = PATTERN_BANNER;
+  bannerOffset = 0;
+  patternStartedAt = millis();
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+}
+
+void cycleBrightness() {
+  brightness = brightness >= 230 ? 64 : brightness + 32;
+  FastLED.setBrightness(brightness);
+}
+
+void cycleSpeed() {
+  speedControl = speedControl >= 225 ? 70 : speedControl + 31;
+}
+
+void runShortPatternAction(bool primary) {
+  // Pattern-aware operations first. Every other pattern still receives a
+  // safe, useful fallback: Button 1 adjusts speed; Button 2 adjusts brightness.
+  switch (currentPattern) {
+    case PATTERN_BANNER:
+      if (primary) bannerHue += 32;
+      else {
+        bannerFont = bannerFont == BANNER_FONT_3X5 ? BANNER_FONT_5X5 : BANNER_FONT_3X5;
+        bannerOffset = 0;
+      }
+      break;
+    case PATTERN_LIFE:
+      if (primary) seedLife();
+      else stepLife();
+      break;
+    case PATTERN_PONG:
+      if (primary) playerPaddleX = max(int8_t(0), playerPaddleX - 1);
+      else playerPaddleX = min(int8_t(4), playerPaddleX + 1);
+      break;
+    case PATTERN_MINESWEEPER:
+      if (primary) {
+        mineTargetIndex = (mineTargetIndex + 1) % 5;
+        resetMineDrop();
+      } else {
+        mineDropZ = 4;
+      }
+      break;
+    case PATTERN_MOON_STARS:
+      if (primary) bannerHue += 21;
+      else cycleBrightness();
+      break;
+    case PATTERN_NIXIE_TUBE:
+      if (primary) speedControl = speedControl >= 210 ? 80 : speedControl + 45;
+      else cycleBrightness();
+      break;
+    case PATTERN_MATRIX_RAIN:
+    case PATTERN_MATRIX_DRIFT:
+    case PATTERN_RED_MATRIX_RAIN:
+      if (primary) cycleSpeed();
+      else bannerHue += 19; // a quick hue accent for Matrix-family controls
+      break;
+    case PATTERN_FIREWORKS:
+    case PATTERN_EXPLOSIONS:
+      if (primary) patternStartedAt = millis() - cycleDurationMs + 1; // launch a fresh scene phase
+      else cycleSpeed();
+      break;
+    default:
+      if (primary) cycleSpeed();
+      else cycleBrightness();
+      break;
+  }
+}
 
 void setupButtons() {
-  pinMode(NEXT_BUTTON_PIN, INPUT_PULLUP);
-  pinMode(AUTO_BUTTON_PIN, INPUT_PULLUP);
-  nextRaw = nextStable = digitalRead(NEXT_BUTTON_PIN);
-  autoRaw = autoStable = digitalRead(AUTO_BUTTON_PIN);
+  pinMode(PRIMARY_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(SECONDARY_BUTTON_PIN, INPUT_PULLUP);
+  primaryRaw = primaryStable = digitalRead(PRIMARY_BUTTON_PIN);
+  secondaryRaw = secondaryStable = digitalRead(SECONDARY_BUTTON_PIN);
 }
 
 void updateButtons() {
   const uint32_t now = millis();
-  const bool n = digitalRead(NEXT_BUTTON_PIN);
-  if (n != nextRaw) { nextRaw = n; nextChangedAt = now; }
-  if ((now - nextChangedAt) >= BUTTON_DEBOUNCE_MS && nextStable != nextRaw) {
-    nextStable = nextRaw;
-    if (nextStable == LOW && !autoCycle) advancePattern();
+  const bool primary = digitalRead(PRIMARY_BUTTON_PIN);
+  if (primary != primaryRaw) { primaryRaw = primary; primaryChangedAt = now; }
+  if ((now - primaryChangedAt) >= BUTTON_DEBOUNCE_MS && primaryStable != primaryRaw) {
+    primaryStable = primaryRaw;
+    if (primaryStable == LOW) primaryPressedAt = now;
+    else if (now - primaryPressedAt >= BUTTON_LONG_PRESS_MS) activateBannerMode();
+    else runShortPatternAction(true);
   }
 
-  const bool a = digitalRead(AUTO_BUTTON_PIN);
-  if (a != autoRaw) { autoRaw = a; autoChangedAt = now; }
-  if ((now - autoChangedAt) >= BUTTON_DEBOUNCE_MS && autoStable != autoRaw) {
-    autoStable = autoRaw;
-    if (autoStable == LOW) { autoCycle = !autoCycle; patternStartedAt = now; }
+  const bool secondary = digitalRead(SECONDARY_BUTTON_PIN);
+  if (secondary != secondaryRaw) { secondaryRaw = secondary; secondaryChangedAt = now; }
+  if ((now - secondaryChangedAt) >= BUTTON_DEBOUNCE_MS && secondaryStable != secondaryRaw) {
+    secondaryStable = secondaryRaw;
+    if (secondaryStable == LOW) secondaryPressedAt = now;
+    else if (now - secondaryPressedAt >= BUTTON_LONG_PRESS_MS) {
+      autoCycle = false;
+      advancePattern();
+    } else runShortPatternAction(false);
   }
 }
 
@@ -974,6 +1194,149 @@ void handleControl() {
   handleState();
 }
 
+int readJsonInt(const String &json, const char *key, int fallback) {
+  const String marker = String('"') + key + "\":";
+  const int start = json.indexOf(marker);
+  if (start < 0) return fallback;
+  return json.substring(start + marker.length()).toInt();
+}
+
+bool readJsonBool(const String &json, const char *key, bool fallback) {
+  const String marker = String('"') + key + "\":";
+  const int start = json.indexOf(marker);
+  if (start < 0) return fallback;
+  const String value = json.substring(start + marker.length());
+  if (value.startsWith("true")) return true;
+  if (value.startsWith("false")) return false;
+  return fallback;
+}
+
+String readJsonString(const String &json, const char *key, const String &fallback) {
+  const String marker = String('"') + key + "\":\"";
+  const int start = json.indexOf(marker);
+  if (start < 0) return fallback;
+  const int valueStart = start + marker.length();
+  const int valueEnd = json.indexOf('"', valueStart);
+  return valueEnd < 0 ? fallback : json.substring(valueStart, valueEnd);
+}
+
+bool selectCanonicalPattern(int canonicalId) {
+  // The mobile app catalog is the 48-pattern standalone catalogue. CubeFXWeb
+  // currently embeds the 31 effects mapped here; other canonical demos remain
+  // individually uploadable from patterns/ and are intentionally rejected.
+  switch (canonicalId) {
+    case 1: currentPattern = PATTERN_VECTOR_CUBE; break;
+    case 9: currentPattern = PATTERN_MATRIX_RAIN; break;
+    case 10: currentPattern = PATTERN_CORNER_CUBES; break;
+    case 11: currentPattern = PATTERN_GLITTER; break;
+    case 12: currentPattern = PATTERN_PONG; break;
+    case 19: currentPattern = PATTERN_LIFE; break;
+    case 20: currentPattern = PATTERN_CLOUDS; break;
+    case 21: currentPattern = PATTERN_PLASMA; break;
+    case 22: currentPattern = PATTERN_FIRE; break;
+    case 26: currentPattern = PATTERN_SPIRALS; break;
+    case 28: currentPattern = PATTERN_COMETS; break;
+    case 29: currentPattern = PATTERN_BANNER; break;
+    case 30: currentPattern = PATTERN_BULLET_WALL; break;
+    case 31: currentPattern = PATTERN_PADDED_CELL; break;
+    case 32: currentPattern = PATTERN_BLOCK_RUN; break;
+    case 33: currentPattern = PATTERN_PARALLAX; break;
+    case 34: currentPattern = PATTERN_TRENCH_RUN; break;
+    case 35: currentPattern = PATTERN_RUNNING_LEGS; break;
+    case 36: currentPattern = PATTERN_FAIRY_BOX; break;
+    case 37: currentPattern = PATTERN_AQUARIUM; break;
+    case 38: currentPattern = PATTERN_PYRAMID; break;
+    case 39: currentPattern = PATTERN_MATRIX_DRIFT; break;
+    case 40: currentPattern = PATTERN_INTENSE_FIRE; break;
+    case 41: currentPattern = PATTERN_BLUE_FIRE; break;
+    case 42: currentPattern = PATTERN_EXPLOSIONS; break;
+    case 43: currentPattern = PATTERN_FIREWORKS; break;
+    case 44: currentPattern = PATTERN_PIXEL_PASTURE; break;
+    case 45: currentPattern = PATTERN_RED_MATRIX_RAIN; break;
+    case 46: currentPattern = PATTERN_MINESWEEPER; break;
+    case 47: currentPattern = PATTERN_MOON_STARS; break;
+    case 48: currentPattern = PATTERN_NIXIE_TUBE; break;
+    default: return false;
+  }
+  autoCycle = false;
+  patternStartedAt = millis();
+  return true;
+}
+
+void publishBleStatus(bool ok, const char *message) {
+  if (!bleStatusCharacteristic) return;
+  String status = "{\"ok\":" + String(ok ? "true" : "false") + ",\"pattern\":" + String(uint8_t(currentPattern));
+  status += ",\"message\":\"" + String(message) + "\"}";
+  bleStatusCharacteristic->setValue(status.c_str());
+  bleStatusCharacteristic->notify();
+}
+
+void handleBleCommand(const String &json) {
+  const String op = readJsonString(json, "op", "");
+  if (op == "pattern") {
+    if (selectCanonicalPattern(readJsonInt(json, "id", -1))) publishBleStatus(true, "pattern selected");
+    else publishBleStatus(false, "standalone-only pattern");
+    return;
+  }
+  if (op == "engine") {
+    brightness = constrain(readJsonInt(json, "brightness", brightness), 1, 255);
+    speedControl = constrain(readJsonInt(json, "speed", speedControl), 1, 255);
+    cycleDurationMs = constrain(readJsonInt(json, "cycle", cycleDurationMs / 1000), 5, 120) * 1000UL;
+    autoCycle = readJsonBool(json, "auto", autoCycle);
+    FastLED.setBrightness(brightness);
+    publishBleStatus(true, "engine applied");
+    return;
+  }
+  if (op == "banner") {
+    setBannerMessage(readJsonString(json, "text", String(bannerText)));
+    bannerFont = readJsonInt(json, "font", uint8_t(bannerFont)) == 5 ? BANNER_FONT_5X5 : BANNER_FONT_3X5;
+    bannerHue = constrain(readJsonInt(json, "hue", bannerHue), 0, 255);
+    bannerScrollSpeed = constrain(readJsonInt(json, "speed", bannerScrollSpeed), 1, 255);
+    bannerOffset = 0;
+    publishBleStatus(true, "banner applied");
+    return;
+  }
+  if (op == "next") { autoCycle = false; advancePattern(); publishBleStatus(true, "next pattern"); return; }
+  if (op == "reseed") { seedLife(); publishBleStatus(true, "life reseeded"); return; }
+  publishBleStatus(false, "unknown command");
+}
+
+class CubeFXBleCommandCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *characteristic) override {
+    const String received = characteristic->getValue();
+    if (received.length() > 0 && received.length() <= 180) handleBleCommand(received);
+  }
+};
+
+class CubeFXBleServerCallbacks : public BLEServerCallbacks {
+  void onDisconnect(BLEServer *server) override {
+    // Android may reconnect after a screen rotation or range change; resume
+    // advertising immediately so the CubeFX device remains discoverable.
+    server->getAdvertising()->start();
+  }
+};
+
+void setupBle() {
+  BLEDevice::init("CubeFX-5x5x5");
+  bleServer = BLEDevice::createServer();
+  bleServer->setCallbacks(new CubeFXBleServerCallbacks());
+  BLEService *service = bleServer->createService(CUBEFX_BLE_SERVICE_UUID);
+  BLECharacteristic *command = service->createCharacteristic(
+    CUBEFX_BLE_COMMAND_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+  );
+  command->setCallbacks(new CubeFXBleCommandCallbacks());
+  bleStatusCharacteristic = service->createCharacteristic(
+    CUBEFX_BLE_STATUS_UUID,
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+  );
+  bleStatusCharacteristic->addDescriptor(new BLE2902());
+  publishBleStatus(true, "ready");
+  service->start();
+  bleServer->getAdvertising()->addServiceUUID(CUBEFX_BLE_SERVICE_UUID);
+  bleServer->getAdvertising()->start();
+}
+
 void setupWeb() {
   web.on("/", HTTP_GET, handleRoot);
   web.on("/api/state", HTTP_GET, handleState);
@@ -1011,6 +1374,7 @@ void setup() {
   setupButtons();
   setupNetwork();
   setupWeb();
+  setupBle();
   patternStartedAt = millis();
 }
 

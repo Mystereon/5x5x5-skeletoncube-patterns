@@ -1,10 +1,10 @@
 # SkeletonCube Patterns
 
-> A self-playing **5×5×5 WS2812B / NeoPixel skeletal-frame cube** pattern library for Arduino and FastLED.
+> A **5×5×5 WS2812B / NeoPixel skeletal-frame cube** pattern library for Arduino and FastLED.
 
 **Created by Dad (MysterEon) & Manus, 2026.** It began with a physical 125-pixel cube and a simple question—how do you make voxel shapes tumble? It is released as a public starting point for anyone building, extending, or remixing small LED cubes.
 
-![Platform](https://img.shields.io/badge/platform-Arduino-00979D) ![LEDs](https://img.shields.io/badge/LEDs-125%20WS2812B-brightgreen) ![Patterns](https://img.shields.io/badge/patterns-28-purple) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Platform](https://img.shields.io/badge/platform-Arduino-00979D) ![LEDs](https://img.shields.io/badge/LEDs-125%20WS2812B-brightgreen) ![Patterns](https://img.shields.io/badge/patterns-48-purple) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## The pattern gallery
 
@@ -47,7 +47,7 @@ The master sketch contains a sequence of **28 effects**. Each receives a deliber
 SkeletonCubePatterns/                 # The self-playing master Arduino sketch
   SkeletonCubePatterns.ino
   CubeTypes.h
-patterns/                             # Canonical 45 standalone visual effects
+patterns/                             # Canonical 48 standalone visual effects
   01_RedVectorCube/
   ...
   28_WrappingComets/
@@ -56,6 +56,9 @@ patterns/                             # Canonical 45 standalone visual effects
   39_MatrixDrift/
   ...
   45_RedMatrixRain/
+  46_VoxelMinesweeper/
+  47_BigMoonStars/
+  48_NixieTube/
 controllers/                           # ESP32-C3 hardware control examples
   29_ESP32C3_NextPatternButton/
   30_ESP32C3_DualButtonController/
@@ -63,16 +66,16 @@ standalone/                            # Standalone application-style sketches
   Conway3DLife/
   CubeFXWeb/
   CubeFXPatternDemos/                  # Alternate CubeFX demo source collection
-tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–45
+tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–48
 ```
 
-[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **45 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–45 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
+[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **48 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–48 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
-[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 browser controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes an HTTP API for 28 built-in 3-D patterns—including green and red Matrix rains, Matrix Drift, Bullet Wall particle impacts, Padded Cell, scrolling micro-worlds, high-impact fire, explosions, fireworks, Pixel Pasture, parallax, a fish tank, and a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **31 selectable CubeFX modes**. These include green and red Matrix rains, Matrix Drift, a genuine single-player Pong, Voxel Minesweeper, Big Moon & Stars, Nixie Tube, Bullet Wall particle impacts, Padded Cell, scrolling micro-worlds, high-impact fire, explosions, fireworks, Pixel Pasture, parallax, a fish tank, and a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
 
-[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is now [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, and 40–45 add high-impact fire, explosions, fireworks, the Pixel Pasture scene, and Red Matrix Rain.
+[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, and 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube.
 
 ## Hardware assumptions
 
@@ -163,22 +166,31 @@ For a physical one-button version on an **ESP32-C3 SuperMini**, use **GPIO3** an
 GPIO3 ────[ momentary push button ]──── GND
 ```
 
-Open [`patterns/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino`](patterns/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino). This variant disables automatic cycling and advances one pattern on each debounced press. It uses the internal pull-up, so no external resistor is needed. The full wiring and pin-selection rationale are in its [reference note](patterns/29_ESP32C3_NextPatternButton/README.md).
+Open [`controllers/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino`](controllers/29_ESP32C3_NextPatternButton/29_ESP32C3_NextPatternButton.ino). This variant disables automatic cycling and advances one pattern on each debounced press. It uses the internal pull-up, so no external resistor is needed. The full wiring and pin-selection rationale are in its [reference note](controllers/29_ESP32C3_NextPatternButton/README.md).
 
 GPIO3 is a normal GPIO on the ESP32-C3. Avoid GPIO2, GPIO8, and GPIO9 for this switch because they are boot-strapping pins; avoid GPIO12–GPIO17, which are normally used by SPI flash; and leave GPIO18–GPIO19 available if you rely on USB-JTAG.[2] [3]
 
-### Dual-button auto/manual controller
+### CubeFXWeb dual-button and BLE controller
 
-Use the second controller when you want both long automatic playback and hands-on browsing:
+CubeFXWeb starts in automatic playback. Its two physical buttons retain global long-press behaviour while exposing useful short-press pattern actions:
 
 ```text
-GPIO4 ────[ NEXT ]─────────── GND
-GPIO8 ────[ AUTO / MANUAL ]── GND
+GPIO4 ────[ PRIMARY / BANNER ]── GND
+GPIO8 ────[ SECONDARY / NEXT ]── GND
 ```
 
-Open [`patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino`](patterns/30_ESP32C3_DualButtonController/30_ESP32C3_DualButtonController.ino). The cube starts in **auto** mode. Press GPIO8 to pause the current pattern and enter **manual** mode; then press GPIO4 to advance one pattern at a time. Press GPIO8 again to restart **auto** playback from the pattern currently on display.
+| Input | Short press | Long press |
+|---|---|---|
+| **GPIO4 / Button 1** | Pattern primary action. In Single-player Pong, move the full-height paddle **left**. | Enter **Banner** mode. |
+| **GPIO8 / Button 2** | Pattern secondary action. In Single-player Pong, move the full-height paddle **right**. | Select the **next** pattern and enter manual mode. |
+
+Examples of short-press actions include Banner hue/font control, Life reseed/step, Minesweeper target/probe reset, and intensity/speed adjustments for compatible effects. The legacy standalone dual-button example remains at [`controllers/30_ESP32C3_DualButtonController/`](controllers/30_ESP32C3_DualButtonController/), while CubeFXWeb contains this current control model.
 
 GPIO8 is an ESP32-C3 boot strapping pin. The mode switch is usable after startup but it must be **released** at reset and power-up. If the SuperMini board does not already keep GPIO8 high at boot, add a 10 kΩ pull-up resistor from GPIO8 to 3V3. If booting or uploading becomes unreliable, temporarily disconnect the GPIO8 switch and substitute a normal GPIO when feasible.[2] [3]
+
+### Android BLE control
+
+CubeFXWeb advertises as **`CubeFX-5x5x5`** and exposes the CubeFX service UUID `6c75a300-7b1d-4f29-a221-000000000001`. The accompanying Android controller scans for this service and sends compact JSON pattern, engine, banner, next-pattern, and Life-reseed commands through its write-without-response characteristic. The firmware also publishes concise success/error status messages through a notify characteristic. This standard ESP32 Arduino BLE server structure uses a writable characteristic and advertising service UUID as documented by Espressif.[4]
 
 ## Electrical notes
 
@@ -203,3 +215,4 @@ Released under the [MIT License](LICENSE). Keep the Dad & Manus origin credit in
 [1]: https://github.com/FastLED/FastLED/blob/master/cookbook/core-concepts/power.md "FastLED power considerations"
 [2]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/peripherals/gpio.html "Espressif ESP32-C3 GPIO summary"
 [3]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c3/schematic-checklist.html#strapping-pins "Espressif ESP32-C3 strapping-pin guidance"
+[4]: https://docs.espressif.com/projects/arduino-esp32/en/latest/api/ble.html "Arduino-ESP32 BLE API"

@@ -19,7 +19,7 @@ LEGACY = [
     ('09_MatrixRain', 'Matrix Rain', 'renderMatrixRain();', True, 'Dense classic green Matrix-style rain.'),
     ('10_CornerCubes', 'Corner Cubes', 'renderCornerCubes();', False, 'Eight colour-shifting 2×2×2 corner cubes.'),
     ('11_WhiteGlitter', 'White Glitter', 'renderGlitter();', True, 'Random white voxel sparkle with trails.'),
-    ('12_Pong', 'Self-playing Pong', 'renderPong();', False, 'Self-playing 3-D Pong with opposing paddles.'),
+    ('12_Pong', 'Single-player Pong', 'renderPong();', False, 'Player-controlled Pong: GPIO4 moves a full-height rear paddle left; GPIO8 moves it right.'),
     ('13_Tetris', '3-D Tetris', 'renderTetris();', False, 'Autoplaying falling polycubes in a 5×5×5 well.'),
     ('14_BlinkingEye', 'Blinking Eye', 'renderBlinkingEye();', False, 'A tracked 3-D eye that periodically blinks.'),
     ('15_DNAHelix', 'DNA Helix', 'renderDNAHelix();', False, 'Animated dual-strand DNA helix.'),
@@ -56,6 +56,9 @@ CUBEFX_UNIQUE = [
     ('43_LaunchingFireworks', 'Launching Fireworks', 'LaunchingFireworks', 'Rockets launch upward and burst across the top.'),
     ('44_PixelPasture', 'Pixel Pasture', 'PixelPasture', 'Green field, brown pixel cows, clouds on layers 3–4, and a layer-five sun.'),
     ('45_RedMatrixRain', 'Red Matrix Rain', 'RedMatrixRain', 'Straight-down bright red heads with deep crimson fading trails.'),
+    ('46_VoxelMinesweeper', 'Voxel Minesweeper', 'VoxelMinesweeper', 'Falling probes land on base targets and make orange 3×3×3 impact bursts.'),
+    ('47_BigMoonStars', 'Big Moon & Stars', 'BigMoonStars', 'A large shaded moon surrounded by gently twinkling blue stars.'),
+    ('48_NixieTube', 'Nixie Tube', 'NixieTube', 'Dull orange inactive tube segments and bright orange 0–9 numerals.'),
 ]
 
 # Preserve the two old controller examples in their own non-pattern location.
@@ -70,7 +73,7 @@ for name in CONTROLLER_FOLDERS:
 # Remove the old controller placement and the previous duplicated CubeFX entries.
 for name in CONTROLLER_FOLDERS:
     shutil.rmtree(PATTERNS / name, ignore_errors=True)
-for number in range(31, 53):
+for number in range(31, 55):
     for existing in PATTERNS.glob(f'{number:02d}_*'):
         shutil.rmtree(existing, ignore_errors=True)
 
@@ -95,6 +98,20 @@ for folder, label, renderer, keeps_framebuffer, description in LEGACY:
     destination = PATTERNS / folder
     destination.mkdir(parents=True, exist_ok=True)
     sketch = destination / f'{folder}.ino'
+    if folder == '12_Pong':
+        source = CUBEFX_SOURCE / 'SinglePlayerPong' / 'SinglePlayerPong.ino'
+        text = source.read_text(encoding='utf-8').replace('SinglePlayerPong.ino', f'{folder}.ino', 1)
+        sketch.write_text(text, encoding='utf-8')
+        readme = f'''# {folder} — {label}
+
+{description}
+
+This is a **fully standalone, directly uploadable** Arduino FastLED sketch. Short
+GPIO4 presses move the full-height player paddle left; short GPIO8 presses move it
+right. The fixed computer paddle is on the opposite face.
+'''
+        (destination / 'README.md').write_text(readme, encoding='utf-8')
+        continue
     header = f'''/*
   FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
 
@@ -182,7 +199,7 @@ catalog.sort()
 lines = [
     '# Standalone pattern library',
     '',
-    'This folder now contains the canonical **39 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
+    'This folder now contains the canonical **48 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
     '',
     '| # | Pattern | Description |',
     '|---:|---|---|',
@@ -209,4 +226,4 @@ controller_lines = [
 ]
 (CONTROLLERS / 'README.md').write_text('\n'.join(controller_lines) + '\n', encoding='utf-8')
 
-print('Built canonical standalone pattern library: 39 effects in patterns/; controllers preserved in controllers/.')
+print('Built canonical standalone pattern library: 48 effects in patterns/; controllers preserved in controllers/.')

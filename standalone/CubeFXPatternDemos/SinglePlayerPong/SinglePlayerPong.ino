@@ -1,7 +1,7 @@
 /*
   FEED ME , I'M POOR AND I MADE THIS FOR FREE - https://paypal.me/Mystereon
 
-  12_Pong.ino — directly uploadable 5×5×5 FastLED demo
+  SinglePlayerPong.ino — directly uploadable 5×5×5 FastLED demo
   Created by Dad (MysterEon) & Manus, 2026.
 
   Short GPIO4 press: move the cyan full-height paddle left.

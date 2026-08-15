@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## Unreleased — Interactive Pong, BLE CubeFX, and patterns 46–48
+
+Expanded the canonical standalone library to **48 effects**. Added Voxel Minesweeper with falling probes, green base targets, and orange 3×3×3 hit bursts; Big Moon & Stars with a large shaded moon and twinkling sky; and a Nixie Tube that cycles 0–9 with dull orange inactive and bright orange active segments. Replaced the CubeFX self-playing Pong mode with actual single-player Pong: GPIO4 moves the full-height player paddle left and GPIO8 moves it right.
+
+CubeFXWeb now has 31 selectable modes and a BLE service for the Android CubeFX controller. It advertises as `CubeFX-5x5x5`, accepts pattern, engine, banner, next, and Life-reseed commands, returns status notifications, and preserves the local Wi-Fi browser controller. GPIO4 and GPIO8 now use global long presses—Banner and Next—plus pattern-aware short presses.
+
 ## v0.4.0 — High-impact scenes and corrected banner motion
 
 Expanded the canonical library from 39 to **45 distinct standalone patterns**. Added Intense Fire, Magical Blue Fire, Explosions, Launching Fireworks, Pixel Pasture, and Red Matrix Rain. Pixel Pasture places a green base on layer one, blocky brown cows on layer two, clouds on layers three and four, and a golden sun on layer five. Corrected CubeFXWeb banner travel while retaining the forward-facing 3×5 and 5×5 glyph fix.
