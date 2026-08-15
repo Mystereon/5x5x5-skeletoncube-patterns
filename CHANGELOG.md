@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.5 — CubeFXWeb forward-reading banner
+
+Corrected the exterior-banner glyph sampling direction. The physical perimeter path remains unchanged, while both compact 3×5 and bold 5×5 text now reads forward rather than mirrored around the cube.
+
 ## v0.3.4 — CubeFXWeb performance mode
 
 Replaced the fixed 16 ms / roughly 60 FPS animation gate with a browser-configurable 30–120 FPS frame scheduler. Separated motion speed from rendering cadence, increased the motion-speed scale, and added the `fps` API parameter plus the Frame Rate Cap browser control.

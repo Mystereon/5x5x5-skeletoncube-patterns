@@ -459,7 +459,11 @@ void renderBanner(float t) {
     if (glyphColumn == glyphWidth) continue; // inter-character spacer
 
     for (uint8_t z = 0; z < N; ++z) {
-      if (!bannerGlyphPixel(bannerText[characterIndex], glyphColumn, N - 1 - z)) continue;
+      // The physical perimeter increases opposite to the font's screen-space
+      // x-axis. Reverse the sampled glyph column, not the cube traversal, so
+      // both 3×5 and 5×5 text reads forward around the same clockwise loop.
+      const uint8_t sampledColumn = glyphWidth - 1 - glyphColumn;
+      if (!bannerGlyphPixel(bannerText[characterIndex], sampledColumn, N - 1 - z)) continue;
       setPerimeterVoxel(p, z, CHSV(bannerHue + z * 4, 255, 255));
     }
   }

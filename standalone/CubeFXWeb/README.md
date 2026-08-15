@@ -69,7 +69,7 @@ Use the **Control** tab’s new **Frame Rate Cap** slider. For immediate API con
 
 ## Exterior text banner: 3×5 and 5×5 fonts
 
-The **Perimeter Banner** pattern renders bitmap text across the cube’s five vertical voxels and scrolls it continuously around the **four outside faces**. Its 16-column ring path follows the rear, right, front, and left sides clockwise when viewed from above. Corners are assigned only once, so the text remains continuous as it turns each corner.
+The **Perimeter Banner** pattern renders bitmap text across the cube’s five vertical voxels and scrolls it continuously around the **four outside faces**. Its 16-column ring path follows the rear, right, front, and left sides clockwise when viewed from above. Corners are assigned only once, so the text remains continuous as it turns each corner, and the glyph columns are oriented to read forward rather than mirrored along that path.
 
 Two font modes are available in **Control → 3×5 Perimeter Banner**:
 
