@@ -67,6 +67,8 @@ The WS2812B protocol is specified at 800 kbps.[5] A 125-pixel GRB frame contains
 
 Use the **Control** tab’s new **Frame Rate Cap** slider. For immediate API control, request `/api/control?speed=255&fps=120`.
 
+> **Control editing behavior.** The browser refreshes live cube status every 650 ms, but it now preserves any slider, banner, or font value you are editing locally. Set values at your own pace and press **Apply** or **Send to Cube**; only then does the UI reconcile with the controller’s live state.
+
 ## Exterior text banner: 3×5 and 5×5 fonts
 
 The **Perimeter Banner** pattern renders bitmap text across the cube’s five vertical voxels and scrolls it continuously around the **four outside faces**. Its 16-column ring path follows the rear, right, front, and left sides clockwise when viewed from above. Corners are assigned only once, so the text remains continuous as it turns each corner, and the glyph columns are oriented to read forward rather than mirrored along that path.

@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.6 — CubeFXWeb non-sticky controls
+
+Added dirty-control tracking in the browser interface. Live refreshes no longer overwrite engine sliders, banner text, font selection, hue, or scroll speed while they are being edited; the controls synchronize only after **Apply** or **Send to Cube**.
+
 ## v0.3.5 — CubeFXWeb forward-reading banner
 
 Corrected the exterior-banner glyph sampling direction. The physical perimeter path remains unchanged, while both compact 3×5 and bold 5×5 text now reads forward rather than mirrored around the cube.
