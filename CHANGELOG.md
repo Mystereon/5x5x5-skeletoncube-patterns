@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.9 — Canonical standalone patterns library
+
+Reorganized `patterns/` as the canonical collection of **39 distinct visual effects**: original effects 01–28 plus CubeFX-only additions 29–39. Every numbered project is now directly uploadable and self-contained within its own folder. Moved the two ESP32-C3 hardware-controller examples out of the visual pattern sequence to `controllers/`, and removed duplicate CubeFX pattern numbering.
+
 ## v0.3.8 — CubeFX actual standalone demos
 
 Added **22 complete, directly uploadable Arduino FastLED sketches** under `standalone/CubeFXPatternDemos/`. Each effect now has its own folder and self-contained `.ino`, with no browser, web-server, master-sketch, or local-header dependency.

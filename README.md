@@ -47,28 +47,30 @@ The master sketch contains a sequence of **28 effects**. Each receives a deliber
 SkeletonCubePatterns/                 # The self-playing master Arduino sketch
   SkeletonCubePatterns.ino
   CubeTypes.h
-patterns/                             # 28 fixed-pattern sketches plus an ESP32-C3 controller
+patterns/                             # Canonical 39 standalone visual effects
   01_RedVectorCube/
-  02_SolidCube/
   ...
   28_WrappingComets/
+  29_PerimeterBanner/
+  ...
+  39_MatrixDrift/
+controllers/                           # ESP32-C3 hardware control examples
   29_ESP32C3_NextPatternButton/
   30_ESP32C3_DualButtonController/
-standalone/                           # Fully independent sketches with no master-library include
+standalone/                            # Standalone application-style sketches
   Conway3DLife/
   CubeFXWeb/
-  CubeFXPatternDemos/                  # 22 directly uploadable one-pattern CubeFX demos
-tools/generate_pattern_examples.sh      # Rebuilds the reference-wrapper folders
-tools/generate_cubefx_standalone_demos.py # Rebuilds the 22 actual standalone demos
+  CubeFXPatternDemos/                  # Alternate CubeFX demo source collection
+tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–39
 ```
 
-Every folder under [`patterns/`](patterns/) contains an uploadable `.ino` file and a short README. These reference sketches intentionally share the master implementation rather than carrying 28 divergent copies: each one disables auto-cycling, selects exactly one pattern, and includes the common code. **Clone or download the entire repository before opening a reference sketch**, so its relative include path remains valid.
+[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **39 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–39 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
 [`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 browser controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes an HTTP API for 22 built-in 3-D patterns—including straight-down Matrix Rain, diagonal Matrix Drift, Bullet Wall particle impacts, Padded Cell, scrolling micro-worlds, parallax, a fish tank, and a configurable perimeter message with compact 3×5 and true bold 5×5 fonts that scrolls continuously around the four exterior faces.
 
-[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) provides the same 22 effects as **actual standalone sketches**. Each folder has one self-contained `.ino` with its own FastLED initialization, cube mapper, complete pattern implementation, `setup()`, and `loop()`—there are no local includes, browser dependencies, or master-sketch dependencies. Open any one folder in Arduino IDE and upload it directly.
+[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is now [`patterns/`](patterns/): 01–28 are the original effects and 29–39 are the 11 CubeFX-only additions.
 
 ## Hardware assumptions
 
