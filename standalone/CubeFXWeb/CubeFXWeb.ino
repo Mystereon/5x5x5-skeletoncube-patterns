@@ -126,13 +126,20 @@ const char *const patternNames[PATTERN_COUNT] = {
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
 bool autoCycle = true;
-uint8_t speedControl = 150;        // 1 slow .. 255 fast
-uint32_t cycleDurationMs = 30000;  // 5 .. 120 seconds from the browser
+uint8_t speedControl = 150;        // 1 slow .. 255 fast motion scaling
+uint8_t frameRateLimit = 120;       // 30 .. 120 FPS render cap; default is performance mode
+uint32_t cycleDurationMs = 30000;   // 5 .. 120 seconds from the browser
 uint32_t patternStartedAt = 0;
 uint32_t lastFrameAt = 0;
 
+uint16_t frameIntervalMs() {
+  return 1000U / frameRateLimit;
+}
+
 float effectTime() {
-  return millis() * 0.001f * (0.20f + speedControl / 130.0f);
+  // Motion speed is independent of render cadence. This is roughly 2.4× faster
+  // at the existing default value and reaches about 2.5× the former top speed.
+  return millis() * 0.001f * (0.15f + speedControl / 48.0f);
 }
 
 void renderVectorCube(float t) {
@@ -526,6 +533,7 @@ String stateJson() {
   body += ",\"name\":\"" + String(patternNames[currentPattern]) + "\"";
   body += ",\"brightness\":" + String(brightness);
   body += ",\"speed\":" + String(speedControl);
+  body += ",\"fps\":" + String(frameRateLimit);
   body += ",\"auto\":" + String(autoCycle ? "true" : "false");
   body += ",\"cycle\":" + String(cycleDurationMs / 1000);
   body += ",\"banner\":\"" + String(bannerText) + "\"";
@@ -571,6 +579,7 @@ void handleControl() {
     FastLED.setBrightness(brightness);
   }
   if (web.hasArg("speed")) speedControl = constrain(web.arg("speed").toInt(), 1, 255);
+  if (web.hasArg("fps")) frameRateLimit = constrain(web.arg("fps").toInt(), 30, 120);
   if (web.hasArg("cycle")) cycleDurationMs = constrain(web.arg("cycle").toInt(), 5, 120) * 1000UL;
   if (web.hasArg("text")) setBannerMessage(web.arg("text"));
   if (web.hasArg("bannerHue")) bannerHue = constrain(web.arg("bannerHue").toInt(), 0, 255);
@@ -629,9 +638,15 @@ void loop() {
   web.handleClient();
   updateButtons();
 
-  if (autoCycle && millis() - patternStartedAt >= cycleDurationMs) advancePattern();
-  if (millis() - lastFrameAt >= 16) {
-    lastFrameAt = millis();
+  const uint32_t now = millis();
+  if (autoCycle && now - patternStartedAt >= cycleDurationMs) advancePattern();
+
+  // The old fixed 16 ms gate capped all effects at about 60 FPS. At 125 LEDs,
+  // WS2812B output occupies only a small fraction of the ESP32-C3's time, so a
+  // configurable 30–120 FPS cap keeps motion smooth while handleClient() still
+  // runs on every pass through loop().
+  if (now - lastFrameAt >= frameIntervalMs()) {
+    lastFrameAt = now;
     renderCurrentPattern();
     FastLED.show();
   }

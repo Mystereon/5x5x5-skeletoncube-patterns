@@ -2,6 +2,10 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.3.4 — CubeFXWeb performance mode
+
+Replaced the fixed 16 ms / roughly 60 FPS animation gate with a browser-configurable 30–120 FPS frame scheduler. Separated motion speed from rendering cadence, increased the motion-speed scale, and added the `fps` API parameter plus the Frame Rate Cap browser control.
+
 ## v0.3.3 — CubeFXWeb Arduino build fix
 
 Moved CubeFXWeb’s browser page into `CubeFXWebPage.h`, preventing the Arduino sketch preprocessor from treating embedded JavaScript `function` declarations as C++. Restored the missing compact 3×5 `E` glyph so both font-table compile-time checks pass. The complete `CubeFXWeb` folder must now be kept together when opening the sketch.

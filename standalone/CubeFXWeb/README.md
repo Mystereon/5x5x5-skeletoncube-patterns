@@ -9,10 +9,10 @@ The firmware has no cloud dependency and uses only FastLED plus the Arduino-ESP3
 | Area | Included |
 |---|---|
 | Pattern gallery | 12 cube-aware effects: vector cube, Matrix rain, plasma, fire, spirals, comets, Pong, 3-D Life, clouds, glitter, corner cubes, and a 3×5 perimeter banner. |
-| Browser controls | Pattern selection, brightness, speed, automatic dwell time, auto/manual switch, next pattern, 3-D Life reseed, and banner text/colour/scroll-speed controls. |
+| Browser controls | Pattern selection, higher-range motion speed, a 30–120 FPS frame cap, automatic dwell time, auto/manual switch, next pattern, 3-D Life reseed, and banner text/colour/scroll-speed controls. |
 | Networking | Access-point mode by default; optional connection to an existing Wi-Fi network. |
 | Physical controls | GPIO4 advances a pattern in manual mode; GPIO8 toggles auto/manual. |
-| Rendering | Non-blocking `millis()` scheduling; no frame delay. |
+| Rendering | Non-blocking `millis()` scheduling; no runtime `delay()` and a configurable 30–120 FPS scheduler. |
 | Cube map | The confirmed bottom–rear–left origin and non-serpentine left-to-right rows. |
 
 ## Upload and connect
@@ -53,6 +53,19 @@ CubeFXWeb tries home Wi-Fi for 12 seconds. If it cannot join, it deliberately fa
 | Map equation | `index = z * 25 + y * 5 + x` |
 
 The cube is powered separately at 5 V. Connect the LED supply ground to ESP32-C3 ground. The firmware calls FastLED's power-management limiter at 5 V and 1.5 A; review the supply, wires, and connector ratings before increasing it. FastLED’s common full-white planning estimate is 60 mA per pixel, which would be 7.5 A for 125 pixels.[2]
+
+## Performance and speed tuning
+
+CubeFXWeb has **no runtime `delay()`** in its animation loop. The old fixed 16 ms frame gate, which limited rendering to about 60 FPS, has been replaced by a configurable frame scheduler. Motion speed and frame rate are deliberately separate: speed controls how quickly patterns evolve, while the frame cap controls how many frames the ESP32-C3 attempts to draw each second.
+
+| Browser control | Range | Default | Use it for |
+|---|---:|---:|---|
+| **Motion speed** | 1–255 | 150 | Faster rotation, drift, rain, comets, and other time-based movement. The revised scale is approximately 2.4× faster at the existing default than the earlier controller. |
+| **Frame rate cap** | 30–120 FPS | 120 FPS | Smoother trails and motion. Lower it if browser access becomes sluggish or you prefer lower CPU activity. |
+
+The WS2812B protocol is specified at 800 kbps.[5] A 125-pixel GRB frame contains 3,000 data bits, giving a theoretical wire time of about **3.7 ms** before reset/latch and firmware overhead. A 120 FPS cap provides an 8.33 ms frame budget, so it is deliberately a conservative working limit rather than the cube’s raw wire-speed limit. Browser preview refreshes remain slow by design and do not slow the physical cube animation.
+
+Use the **Control** tab’s new **Frame Rate Cap** slider. For immediate API control, request `/api/control?speed=255&fps=120`.
 
 ## Exterior text banner: 3×5 and 5×5 fonts
 
@@ -95,7 +108,7 @@ The interface is deliberately simple, which also makes it easy to build physical
 | `/api/state` | `/api/state` | Current pattern and controller state in JSON. |
 | `/api/frame` | `/api/frame` | Current 125-voxel colour framebuffer in JSON. |
 | `/api/control` | `/api/control?pattern=7` | Select a pattern and switch to manual mode. |
-| `/api/control` | `/api/control?brightness=80&speed=180&cycle=45` | Update live controls. |
+| `/api/control` | `/api/control?brightness=80&speed=180&fps=120&cycle=45` | Update brightness, motion speed, frame cap, and dwell time. |
 | `/api/control` | `/api/control?auto=1` | Start automatic cycling. |
 | `/api/control` | `/api/control?next=1` | Enter manual mode and advance one pattern. |
 | `/api/control` | `/api/control?reseed=1` | Seed a fresh 3-D Life world. |
@@ -115,3 +128,4 @@ Created by Dad (MysterEon) & Manus, 2026. Released under the repository MIT Lice
 [2]: https://github.com/FastLED/FastLED/blob/master/cookbook/core-concepts/power.md "FastLED power considerations"
 [3]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/peripherals/gpio.html "Espressif ESP32-C3 GPIO summary"
 [4]: https://docs.espressif.com/projects/esptool/en/latest/esp32c3/advanced-topics/boot-mode-selection.html "Espressif ESP32-C3 boot-mode selection"
+[5]: https://www.seeedstudio.com/document/pdf/WS2812B%20Datasheet.pdf "WS2812B datasheet"
