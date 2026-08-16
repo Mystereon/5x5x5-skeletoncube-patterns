@@ -1,6 +1,6 @@
 # CubeFX on the Waveshare ESP32-S3-Zero
 
-> **Preferred CubeFX assignment for the photographed board:** LED data = **GPIO2**; Button 1 = **GPIO4**; Button 2 = **GPIO5**.
+> **Preferred CubeFX assignment for the photographed board:** LED data = **GPIO6**; Button 1 = **GPIO2**; Button 2 = **GPIO4**.
 
 This guidance applies to the compact **Waveshare ESP32-S3-Zero** board, including the S3-Zero-M header version. It is not the ESP32-C3 SuperMini used by the default CubeFXWeb configuration. The S3-Zero has 4 MB flash, 2 MB PSRAM, a native USB-C connection, GPIO21 occupied by its onboard WS2812 indicator, and GPIO33–GPIO37 reserved for its Octal PSRAM. [1]
 
@@ -8,12 +8,12 @@ This guidance applies to the compact **Waveshare ESP32-S3-Zero** board, includin
 
 | CubeFX function | ESP32-S3-Zero GPIO | Wiring | Why |
 |---|---:|---|---|
-| WS2812B cube DIN | **GPIO2** | GPIO2 → 330–470 Ω series resistor → level shifter → cube DIN | A normal bidirectional GPIO, clear of S3 boot strapping, USB/JTAG, onboard RGB, UART labels, and S3-Zero PSRAM wiring. |
-| Button 1 / primary | **GPIO4** | Momentary switch from GPIO4 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-primary, long press opens Banner mode. |
-| Button 2 / secondary | **GPIO5** | Momentary switch from GPIO5 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-secondary, long press advances to the next pattern and enters manual mode. |
+| WS2812B cube DIN | **GPIO6** | GPIO6 → 330–470 Ω series resistor → level shifter → cube DIN | A normal bidirectional GPIO, clear of S3 boot strapping, USB/JTAG, onboard RGB, UART labels, and S3-Zero PSRAM wiring. This is the cleanest route for the user’s finished enclosure. |
+| Button 1 / primary | **GPIO2** | Momentary switch from GPIO2 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-primary, long press opens Banner mode. |
+| Button 2 / secondary | **GPIO4** | Momentary switch from GPIO4 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-secondary, long press advances to the next pattern and enters manual mode. |
 | Cube ground | **GND** | Connect to the cube power supply ground | Required common reference for the data signal. |
 
-Use a **74AHCT125**, **74HCT245**, or similar 5 V-tolerant logic level shifter between GPIO2 and a 5 V WS2812B cube. Do not power 125 LEDs from the S3-Zero board: Waveshare rates its onboard regulator at 800 mA, whereas the cube needs its own properly sized 5 V supply. [1]
+Use a **74AHCT125**, **74HCT245**, or similar 5 V-tolerant logic level shifter between GPIO6 and a 5 V WS2812B cube. Do not power 125 LEDs from the S3-Zero board: Waveshare rates its onboard regulator at 800 mA, whereas the cube needs its own properly sized 5 V supply. [1]
 
 ## `CubeFXConfig.h` change
 
@@ -21,16 +21,16 @@ For an S3-Zero build, replace only the board-pin definitions in `CubeFXConfig.h`
 
 ```cpp
 // Waveshare ESP32-S3-Zero CubeFX wiring
-#define CUBEFX_LED_DATA_PIN       2
-#define CUBEFX_PRIMARY_BUTTON_PIN 4
-#define CUBEFX_SECONDARY_BUTTON_PIN 5
+#define CUBEFX_LED_DATA_PIN       6
+#define CUBEFX_PRIMARY_BUTTON_PIN 2
+#define CUBEFX_SECONDARY_BUTTON_PIN 4
 ```
 
 Leave the cube geometry at 5 × 5 × 5 and `CUBEFX_TOTAL_LEDS` at 125 for the present cube. Select an **ESP32-S3** board in Arduino IDE; the S3-Zero’s native USB design may require holding **BOOT** (GPIO0) while connecting USB, then using RESET as described by Waveshare. [1]
 
-### Alternative grouped-pad option
+### Alternative pad options
 
-The photographed lower-right pad group is also completely valid: **GPIO14 = data**, **GPIO15 = Button 1**, and **GPIO16 = Button 2**. Choose it only if that makes the physical wire run tidier. There is no electrical advantage over GPIO2/GPIO4/GPIO5 for CubeFX; GPIO2/GPIO4/GPIO5 are now preferred because they retain the familiar data/primary/secondary arrangement from the earlier CubeFX wiring.
+The former map **GPIO2 = data**, **GPIO4 = Button 1**, and **GPIO5 = Button 2** remains completely valid. The photographed lower-right group **GPIO14 = data**, **GPIO15 = Button 1**, and **GPIO16 = Button 2** is also valid. There is no electrical performance benefit among these normal GPIO choices; use the map with the shortest, cleanest, most serviceable wiring run.
 
 ## Pins intentionally avoided
 
