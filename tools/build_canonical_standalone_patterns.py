@@ -1,7 +1,7 @@
 from pathlib import Path
 import shutil
 
-ROOT = Path('/home/ubuntu/skeletoncube-patterns')
+ROOT = Path(__file__).resolve().parent.parent
 MASTER = ROOT / 'SkeletonCubePatterns' / 'SkeletonCubePatterns.ino'
 PATTERNS = ROOT / 'patterns'
 CUBEFX_SOURCE = ROOT / 'standalone' / 'CubeFXPatternDemos'
@@ -65,6 +65,7 @@ CUBEFX_UNIQUE = [
     ('52_Chequerboard3D', '3-D Chequerboard', 'Chequerboard3D', 'Negative-space chequer planes fold and transform through the cube.'),
     ('53_HellraiserPuzzleCube', 'Hellraiser Puzzle Cube', 'HellraiserPuzzleCube', 'Dark brass labyrinth cube with blue seams, amber glyphs, and mechanical phases.'),
     ('54_RubiksCube3D', '3-D Rubik\'s Cube', 'RubiksCube3D', 'Inset coloured cube with twisting scrambled layers and a solved reveal.'),
+    ('55_LissajousRipple', 'Lissajous Layer Ripple', 'LissajousRipple', 'A 3-D Lissajous trace resting on layer 3, with crests rippling only into layers 2 and 4.'),
 ]
 
 # Preserve the two old controller examples in their own non-pattern location.
@@ -205,7 +206,7 @@ catalog.sort()
 lines = [
     '# Standalone pattern library',
     '',
-    'This folder now contains the canonical **54 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
+    'This folder now contains the canonical **55 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
     '',
     '| # | Pattern | Description |',
     '|---:|---|---|',
@@ -232,4 +233,4 @@ controller_lines = [
 ]
 (CONTROLLERS / 'README.md').write_text('\n'.join(controller_lines) + '\n', encoding='utf-8')
 
-print('Built canonical standalone pattern library: 54 effects in patterns/; controllers preserved in controllers/.')
+print('Built canonical standalone pattern library: 55 effects in patterns/; controllers preserved in controllers/.')

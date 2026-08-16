@@ -88,6 +88,42 @@ constexpr bool SERPENTINE_LAYERS = false;
 CRGB leds[NUM_LEDS];
 uint8_t brightness = DEFAULT_BRIGHTNESS;
 
+// Geometry is fixed for a 5×5×5 cube. Build these once at boot instead of
+// recalculating roots and angles inside 120 FPS render loops.
+struct VoxelGeometry {
+  uint8_t centreRadius16;
+  uint8_t moonRadius16;
+  uint8_t moonShade;
+  uint8_t blackHoleAngle;
+  int8_t z2;
+};
+VoxelGeometry voxelGeometry[NUM_LEDS];
+uint8_t explosionRadius16[2][NUM_LEDS];
+uint8_t stargateRadius16[N][N];
+
+void buildGeometryLUT() {
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const uint16_t i = indexFromXYZ(x, y, z);
+    const float dx = x - 2.0f, dy = y - 2.0f, dz = z - 2.0f;
+    const float centreRadius = sqrtf(dx * dx + dy * dy + dz * dz);
+    const float moonDx = x - 1.30f, moonDy = y - 2.15f, moonDz = z - 3.0f;
+    const float moonRadius = sqrtf(moonDx * moonDx + moonDy * moonDy + moonDz * moonDz);
+    voxelGeometry[i].centreRadius16 = uint8_t(centreRadius * 16.0f + 0.5f);
+    voxelGeometry[i].moonRadius16 = uint8_t(moonRadius * 16.0f + 0.5f);
+    voxelGeometry[i].moonShade = moonRadius < 2.15f ? uint8_t(220 - moonRadius * 56 - max(0.0f, moonDx) * 34) : 0;
+    voxelGeometry[i].blackHoleAngle = uint8_t((atan2f(dy, dx) + 3.1415926f) * 255.0f / 6.2831853f);
+    voxelGeometry[i].z2 = int8_t(z * 2 - 4);
+    for (uint8_t centre = 0; centre < 2; ++centre) {
+      const float ex = x - (centre ? 3.0f : 2.0f);
+      explosionRadius16[centre][i] = uint8_t(sqrtf(ex * ex + dy * dy + dz * dz) * 16.0f + 0.5f);
+    }
+  }
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t x = 0; x < N; ++x) {
+    const float dx = x - 2.0f, dz = z - 2.3f;
+    stargateRadius16[x][z] = uint8_t(sqrtf(dx * dx + dz * dz) * 16.0f + 0.5f);
+  }
+}
+
 uint16_t indexFromXYZ(uint8_t x, uint8_t y, uint8_t z) {
   uint8_t px = x;
   uint8_t py = y;
@@ -158,6 +194,7 @@ enum Pattern : uint8_t {
   PATTERN_CHEQUERBOARD,
   PATTERN_PUZZLE_CUBE,
   PATTERN_RUBIKS_CUBE,
+  PATTERN_LISSAJOUS_RIPPLE,
   PATTERN_COUNT
 };
 
@@ -169,7 +206,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -263,15 +300,36 @@ void renderMatrixDrift(float t) {
 }
 
 void renderPlasma(float t) {
+  const uint8_t phase = uint8_t(t * 37.0f);
   for (uint8_t z = 0; z < N; ++z) {
     for (uint8_t y = 0; y < N; ++y) {
       for (uint8_t x = 0; x < N; ++x) {
-        const float wave = sinf(x * 1.7f + t) + sinf(y * 1.3f - t * 1.2f) + sinf(z * 1.9f + t * 0.7f);
-        const uint8_t hue = uint8_t((wave + 3.0f) * 42.0f + t * 18.0f);
-        const uint8_t value = uint8_t(105 + (sinf(wave * 2.0f + t) + 1.0f) * 75.0f);
+        const uint16_t wave = uint16_t(sin8(x * 43 + phase)) + sin8(y * 33 - phase) + sin8(z * 49 + phase / 2);
+        const uint8_t folded = wave / 3;
+        const uint8_t hue = folded + phase / 2;
+        const uint8_t value = 105 + scale8(sin8(folded * 2 + phase), 150);
         setVoxel(x, y, z, CHSV(hue, 255, value));
       }
     }
+  }
+}
+
+uint8_t lissajousHue = 155;
+
+void renderLissajousRipple(float t) {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // The calm trace lives on layer 3 (z=2). Only travelling wave crests lift
+  // into layer 4 or dip into layer 2; the pattern never fills the whole cube.
+  constexpr uint8_t SAMPLES = 20;
+  for (uint8_t sample = 0; sample < SAMPLES; ++sample) {
+    const float a = (6.2831853f * sample / SAMPLES) + t * 0.82f;
+    const int8_t x = int8_t(roundf(2.0f + 1.78f * sinf(a * 3.0f)));
+    const int8_t y = int8_t(roundf(2.0f + 1.78f * sinf(a * 2.0f + 1.05f)));
+    const float ripple = sinf(a * 2.0f - t * 3.6f);
+    const int8_t z = ripple > 0.42f ? 3 : (ripple < -0.42f ? 1 : 2);
+    const uint8_t value = 130 + uint8_t((ripple + 1.0f) * 62.0f);
+    addVoxel(x, y, z, CHSV(lissajousHue + sample * 4, 225, value));
+    if (z != 2) addVoxel(x, y, 2, CHSV(lissajousHue + sample * 4, 190, 42));
   }
 }
 
@@ -326,20 +384,17 @@ void renderBlueFire(float t) {
 void renderExplosions(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   const float phase = fmodf(t * 1000.0f, 3100.0f);
-  const float radius = phase < 2200.0f ? phase * 3.6f / 2200.0f : 3.6f;
+  const uint8_t radius16 = uint8_t((phase < 2200.0f ? phase * 3.6f / 2200.0f : 3.6f) * 16.0f);
   const float fade = phase < 2200.0f ? 1.0f : (3100.0f - phase) / 900.0f;
-  const int8_t cx = 2 + (uint8_t(t * 0.35f) & 1);
-  const int8_t cy = 2;
-  const int8_t cz = 2;
+  const uint8_t centre = uint8_t(t * 0.35f) & 1;
   for (int8_t z = 0; z < N; ++z) for (int8_t y = 0; y < N; ++y) for (int8_t x = 0; x < N; ++x) {
-    const float dx = x - cx, dy = y - cy, dz = z - cz;
-    const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-    const float shell = fabsf(distance - radius);
-    if (shell < 0.72f) {
-      const uint8_t value = uint8_t(255.0f * fade * (1.0f - shell / 0.72f));
-      const uint8_t hue = distance < radius * 0.45f ? 18 : 5;
+    const uint8_t distance16 = explosionRadius16[centre][indexFromXYZ(x, y, z)];
+    const uint8_t shell16 = abs(int16_t(distance16) - radius16);
+    if (shell16 < 12) {
+      const uint8_t value = uint8_t(255.0f * fade * (12 - shell16) / 12);
+      const uint8_t hue = distance16 < radius16 * 45 / 100 ? 18 : 5;
       setVoxel(x, y, z, CHSV(hue, 245, value));
-    } else if (distance < radius && ((x * 13 + y * 7 + z * 3 + uint8_t(phase)) & 3) == 0) {
+    } else if (distance16 < radius16 && ((x * 13 + y * 7 + z * 3 + uint8_t(phase)) & 3) == 0) {
       setVoxel(x, y, z, CRGB(uint8_t(85 * fade), 0, 0));
     }
   }
@@ -458,19 +513,16 @@ void renderMinesweeper(float t) {
 
 void renderMoonStars(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  const float cx = 1.30f, cy = 2.15f, cz = 3.00f;
   for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
-    const float dx = x - cx, dy = y - cy, dz = z - cz;
-    const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-    if (distance < 2.15f) {
-      const uint8_t shade = uint8_t(220 - distance * 56 - max(0.0f, dx) * 34);
+    const VoxelGeometry &g = voxelGeometry[indexFromXYZ(x, y, z)];
+    if (g.moonShade) {
+      const uint8_t shade = g.moonShade;
       setVoxel(x, y, z, CRGB(shade, shade, uint8_t(shade * 0.82f)));
     }
   }
   for (uint8_t star = 0; star < 12; ++star) {
     const uint8_t x = (star * 2 + 3) % N, y = (star * 3 + 1) % N, z = (star * 4 + 2) % N;
-    const float dx = x - cx, dy = y - cy, dz = z - cz;
-    if (sqrtf(dx * dx + dy * dy + dz * dz) > 2.15f) {
+    if (voxelGeometry[indexFromXYZ(x, y, z)].moonRadius16 > 34) {
       const uint8_t twinkle = 85 + (sin8(uint8_t(t * 24 + star * 31)) >> 1);
       addVoxel(x, y, z, CRGB(twinkle / 3, twinkle / 2, twinkle));
     }
@@ -780,22 +832,27 @@ void drawBoxFrame(const CRGB &colour) {
 
 void renderRunningLegs(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  const bool leftForward = sinf(t * 5.4f) > 0.0f;
-  const int8_t leftKnee = leftForward ? 1 : 3;
-  const int8_t rightKnee = leftForward ? 3 : 1;
-  const int8_t leftFoot = leftForward ? 0 : 4;
-  const int8_t rightFoot = leftForward ? 4 : 0;
-  // Compact stick runner: hip, two alternating knees, and wide-stepping feet.
+  const float gait = sinf(t * 4.25f);
+  const float swings[2] = {gait, -gait};
+  const int8_t legX[2] = {1, 3};
+  // Visible hip -> knee -> ankle chains make a proper articulated stride.
   setVoxel(2, 2, 4, CRGB(50, 120, 255));
   setVoxel(2, 2, 3, CRGB(230, 50, 35));
-  setVoxel(1, 2, 3, CRGB(255, 175, 95));
-  setVoxel(3, 2, 3, CRGB(255, 175, 95));
-  setVoxel(1, leftKnee, 2, CRGB(245, 210, 80));
-  setVoxel(1, leftFoot, 0, CRGB(255, 255, 255));
-  setVoxel(3, rightKnee, 2, CRGB(245, 210, 80));
-  setVoxel(3, rightFoot, 0, CRGB(255, 255, 255));
-  setVoxel(0, leftFoot, 0, CRGB(120, 120, 120));
-  setVoxel(4, rightFoot, 0, CRGB(120, 120, 120));
+  setVoxel(1, int8_t(roundf(2.0f - 1.25f * gait)), 3, CRGB(255, 175, 95));
+  setVoxel(3, int8_t(roundf(2.0f + 1.25f * gait)), 3, CRGB(255, 175, 95));
+  for (uint8_t leg = 0; leg < 2; ++leg) {
+    const float swing = swings[leg];
+    const float lift = max(0.0f, swing);
+    const int8_t kneeY = int8_t(roundf(2.0f + 1.15f * swing));
+    const int8_t kneeZ = int8_t(roundf(1.65f + 0.95f * lift));
+    const int8_t footY = int8_t(roundf(2.0f + 1.75f * swing));
+    setVoxel(legX[leg], 2, 3, CRGB(255, 132, 45));
+    setVoxel(legX[leg], int8_t(roundf((2.0f + kneeY) * 0.5f)), 2, CRGB(255, 184, 58));
+    setVoxel(legX[leg], kneeY, kneeZ, CRGB(255, 232, 95));
+    setVoxel(legX[leg], int8_t(roundf((kneeY + footY) * 0.5f)), 1, CRGB(255, 205, 72));
+    setVoxel(legX[leg], footY, 0, CRGB::White);
+    addVoxel(legX[leg] + (leg == 0 ? -1 : 1), footY, 0, CRGB(90, 90, 90));
+  }
 }
 
 void renderFairyBox(float t) {
@@ -1017,13 +1074,12 @@ void recordPatternRune(uint8_t candidate) {
 
 void renderBlackHole(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  const float spin = t * (blackHoleReverse ? -1.2f : 1.2f);
+  const uint8_t spin = uint8_t(t * (blackHoleReverse ? -49.0f : 49.0f));
   for (int8_t z = 0; z < N; ++z) for (int8_t y = 0; y < N; ++y) for (int8_t x = 0; x < N; ++x) {
-    const float dx = x - 2.0f, dy = y - 2.0f, dz = z - 2.0f;
-    const float r = sqrtf(dx * dx + dy * dy + dz * dz);
-    if (r < 1.05f || r > 3.1f) continue;
-    const float ribbon = sinf(atan2f(dy, dx) + spin + r * 2.7f + dz * 0.8f);
-    if (ribbon > 0.36f) setVoxel(x, y, z, CHSV(180 + uint8_t(r * 18), 210, uint8_t(70 + ribbon * 150)));
+    const VoxelGeometry &g = voxelGeometry[indexFromXYZ(x, y, z)];
+    if (g.centreRadius16 < 17 || g.centreRadius16 > 50) continue;
+    const uint8_t ribbon = sin8(g.blackHoleAngle + spin + g.centreRadius16 * 7 + g.z2 * 10);
+    if (ribbon > 174) setVoxel(x, y, z, CHSV(180 + g.centreRadius16, 210, 70 + scale8(ribbon - 174, 190)));
   }
 }
 
@@ -1032,9 +1088,9 @@ void renderStargate(float t) {
   const uint8_t chevrons = stargateHeldOpen ? 7 : min<uint8_t>(7, uint8_t(fmodf(t * 0.8f, 9.0f)));
   for (int8_t x = 0; x < N; ++x) for (int8_t y = 0; y < N; ++y) setVoxel(x, y, 0, CRGB(25, 18, 12));
   for (int8_t z = 1; z < N; ++z) for (int8_t x = 0; x < N; ++x) {
-    const float dx = x - 2.0f, dz = z - 2.3f, r = sqrtf(dx * dx + dz * dz);
-    if (r > 1.5f && r < 2.65f) setVoxel(x, 2, z, CRGB(36, 42, 45));
-    if ((chevrons >= 7 || stargateHeldOpen) && r < 1.45f) setVoxel(x, 2, z, CHSV(145, 185, 160 + uint8_t(sinf(t * 5 + x + z) * 45)));
+    const uint8_t radius16 = stargateRadius16[x][z];
+    if (radius16 > 24 && radius16 < 43) setVoxel(x, 2, z, CRGB(36, 42, 45));
+    if ((chevrons >= 7 || stargateHeldOpen) && radius16 < 23) setVoxel(x, 2, z, CHSV(145, 185, 160 + scale8(sin8(uint8_t(t * 52) + x * 29 + z * 17), 90)));
   }
   const int8_t cx[7] = {2,4,4,2,0,0,2};
   const int8_t cz[7] = {4,3,1,1,1,3,4};
@@ -1161,6 +1217,7 @@ void renderCurrentPattern() {
     case PATTERN_CHEQUERBOARD: renderChequerboard(t); break;
     case PATTERN_PUZZLE_CUBE: renderPuzzleCube(t); break;
     case PATTERN_RUBIKS_CUBE: renderRubiksCube(t); break;
+    case PATTERN_LISSAJOUS_RIPPLE: renderLissajousRipple(t); break;
     default: break;
   }
 }
@@ -1260,6 +1317,10 @@ void runShortPatternAction(bool primary) {
     case PATTERN_RUBIKS_CUBE:
       if (primary) { rubikSolvedReveal = false; patternStartedAt = millis(); }
       else rubikSolvedReveal = !rubikSolvedReveal;
+      break;
+    case PATTERN_LISSAJOUS_RIPPLE:
+      if (primary) lissajousHue += 37;
+      else cycleSpeed();
       break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
@@ -1489,6 +1550,7 @@ bool selectCanonicalPattern(int canonicalId) {
     case 52: currentPattern = PATTERN_CHEQUERBOARD; break;
     case 53: currentPattern = PATTERN_PUZZLE_CUBE; break;
     case 54: currentPattern = PATTERN_RUBIKS_CUBE; break;
+    case 55: currentPattern = PATTERN_LISSAJOUS_RIPPLE; break;
     default: return false;
   }
   autoCycle = false;
@@ -1624,6 +1686,7 @@ void setup() {
   FastLED.addLeds<CHIPSET, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(brightness);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
+  buildGeometryLUT();
   randomSeed(esp_random());
   seedLife();
   loadButtonPinPreferences();

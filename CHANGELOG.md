@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.2 — Lissajous ripple and articulated Walking Legs
+
+Added **Lissajous Layer Ripple** as canonical pattern 55 and as an embedded CubeFXWeb mode. Its bright trace lives on layer 3 at rest and only ripples into layers 2 and 4, retaining deliberate negative space. Reworked **Running Legs** into a fluid hip–thigh–knee–shin–foot stride with opposing arm swing, so knees visibly rise during the swing phase rather than jumping between two static poses. CubeFXWeb now exposes 38 selectable modes and the canonical standalone library contains 55 effects.
+
+Added a setup-time 125-voxel geometry cache for fixed centre radii, moon distances/shading, Black Hole polar angles, explosion distances, and Stargate ring radii. Plasma now uses FastLED `sin8()` lookup math rather than per-voxel floating-point sine calls; fixed-scene geometry renderers no longer calculate square roots or polar angles in their frame loops. The ESP32-C3 compile completed successfully at **1,462,952 bytes** of program storage and **44,844 bytes** of global RAM; the supplied `partitions.csv` keeps a 0x3f0000-byte application slot for the 4 MB C3 flash layout.
+
 ## v0.6.1 — Android firmware route
 
 Added a dedicated **Firmware** page to the Android CubeFX Controller source. The page links directly to the current `standalone/CubeFXWeb` firmware folder and the latest GitHub release, then presents a concise Arduino IDE flashing checklist including the supplied maximum-app `partitions.csv` profile and the distinction between persistent BLE button-pin changes versus reflash-required data-pin/dimension changes.

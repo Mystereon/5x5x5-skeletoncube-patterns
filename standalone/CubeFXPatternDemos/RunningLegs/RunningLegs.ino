@@ -600,22 +600,27 @@ void drawBoxFrame(const CRGB &colour) {
 
 void renderRunningLegs(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  const bool leftForward = sinf(t * 5.4f) > 0.0f;
-  const int8_t leftKnee = leftForward ? 1 : 3;
-  const int8_t rightKnee = leftForward ? 3 : 1;
-  const int8_t leftFoot = leftForward ? 0 : 4;
-  const int8_t rightFoot = leftForward ? 4 : 0;
-  // Compact stick runner: hip, two alternating knees, and wide-stepping feet.
+  const float gait = sinf(t * 4.25f);
+  const float swings[2] = {gait, -gait};
+  const int8_t legX[2] = {1, 3};
+  // A visible hip -> knee -> ankle chain makes this a proper running gait.
   setVoxel(2, 2, 4, CRGB(50, 120, 255));
   setVoxel(2, 2, 3, CRGB(230, 50, 35));
-  setVoxel(1, 2, 3, CRGB(255, 175, 95));
-  setVoxel(3, 2, 3, CRGB(255, 175, 95));
-  setVoxel(1, leftKnee, 2, CRGB(245, 210, 80));
-  setVoxel(1, leftFoot, 0, CRGB(255, 255, 255));
-  setVoxel(3, rightKnee, 2, CRGB(245, 210, 80));
-  setVoxel(3, rightFoot, 0, CRGB(255, 255, 255));
-  setVoxel(0, leftFoot, 0, CRGB(120, 120, 120));
-  setVoxel(4, rightFoot, 0, CRGB(120, 120, 120));
+  setVoxel(1, int8_t(roundf(2.0f - 1.25f * gait)), 3, CRGB(255, 175, 95));
+  setVoxel(3, int8_t(roundf(2.0f + 1.25f * gait)), 3, CRGB(255, 175, 95));
+  for (uint8_t leg = 0; leg < 2; ++leg) {
+    const float swing = swings[leg];
+    const float lift = max(0.0f, swing);
+    const int8_t kneeY = int8_t(roundf(2.0f + 1.15f * swing));
+    const int8_t kneeZ = int8_t(roundf(1.65f + 0.95f * lift));
+    const int8_t footY = int8_t(roundf(2.0f + 1.75f * swing));
+    setVoxel(legX[leg], 2, 3, CRGB(255, 132, 45));
+    setVoxel(legX[leg], int8_t(roundf((2.0f + kneeY) * 0.5f)), 2, CRGB(255, 184, 58));
+    setVoxel(legX[leg], kneeY, kneeZ, CRGB(255, 232, 95));
+    setVoxel(legX[leg], int8_t(roundf((kneeY + footY) * 0.5f)), 1, CRGB(255, 205, 72));
+    setVoxel(legX[leg], footY, 0, CRGB::White);
+    addVoxel(legX[leg] + (leg == 0 ? -1 : 1), footY, 0, CRGB(90, 90, 90));
+  }
 }
 
 void renderFairyBox(float t) {
