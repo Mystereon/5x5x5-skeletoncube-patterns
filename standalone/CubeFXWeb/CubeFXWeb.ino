@@ -1358,26 +1358,57 @@ void renderRubiksCube(float t) {
 }
 
 void renderSecretScene(float t) {
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // Scene zero is a small cube apparition. The other hidden scenes deliberately
+  // leave all 125 cube voxels black and perform their show entirely on the rear ring.
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
   if (secretScene == 0) {
     const int8_t pupil = 2 + int8_t(sinf(t * 2.5f) * 1.4f);
     for (int8_t x = 0; x < N; ++x) for (int8_t z = 1; z < 4; ++z) if (abs(x - 2) + abs(z - 2) < 3) setVoxel(x, 4, z, CRGB(90, 0, 0));
     setVoxel(pupil, 4, 2, CRGB::Red);
+  }
+}
+
+void renderSecretMoodRing() {
+  for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
+    leds[MOOD_RING_START + ringPixel] = CRGB::Black;
+  }
+  const uint32_t elapsed = millis() - secretStartedAt;
+  if (secretScene == 0) {
+    const uint8_t eyePulse = 100 + scale8(sin8(uint8_t(elapsed / 9U)), 155);
+    for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
+      leds[MOOD_RING_START + ringPixel] = CRGB(eyePulse, 0, 0);
+    }
   } else if (secretScene == 1) {
-    for (uint16_t i = 0; i < NUM_LEDS; ++i) leds[i] = CRGB(13, 13, 13);
-    const uint8_t phantom = uint8_t(t * 19) % NUM_LEDS;
-    leds[phantom] = CRGB::White;
-    leds[(phantom + 1) % NUM_LEDS] += CRGB(90, 90, 90);
+    // Ring-only warm strobe: deliberately slow; the cube stays completely black.
+    const bool on = ((elapsed / 360U) & 1U) == 0;
+    if (on) fill_solid(leds + MOOD_RING_START, MOOD_RING_LEDS, CRGB(255, 220, 170));
   } else if (secretScene == 2) {
-    for (int8_t z = 0; z < N; ++z) { setVoxel(1, 2, z, CRGB(0, 80, 8)); setVoxel(3, 2, z, CRGB(0, 80, 8)); }
-    setVoxel(2, 2, uint8_t(t * 4) % 5, CRGB(120, 255, 18));
+    // Twelve pixels form a compact analogue clock: amber minute mark, cyan seconds.
+    fill_solid(leds + MOOD_RING_START, MOOD_RING_LEDS, CRGB(0, 4, 9));
+    const uint8_t minuteMark = uint8_t((elapsed / 60000UL) % MOOD_RING_LEDS);
+    const uint8_t secondMark = uint8_t((elapsed / 5000UL) % MOOD_RING_LEDS);
+    leds[MOOD_RING_START + minuteMark] = CRGB(255, 110, 0);
+    leds[MOOD_RING_START + secondMark] += CRGB(0, 190, 255);
   } else if (secretScene == 3) {
-    const int8_t layer = uint8_t(t * 3) % 5;
-    for (int8_t x = 0; x < N; ++x) for (int8_t y = 0; y < N; ++y) setVoxel(x, y, layer, CRGB(8, 100, 220));
+    // Five-second ring-only countdown, ending in a full white release flash.
+    const uint8_t remaining = elapsed >= 5000UL ? 0 : uint8_t(5 - elapsed / 1000UL);
+    const uint8_t lit = remaining == 0 ? MOOD_RING_LEDS : uint8_t((remaining * MOOD_RING_LEDS + 4) / 5);
+    for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
+      if (ringPixel < lit) leds[MOOD_RING_START + ringPixel] = CHSV(4 + remaining * 7, 250, 255);
+    }
   } else {
-    const int8_t p = uint8_t(t * 6) % 16;
-    setPerimeterVoxel(p, 2, CRGB(255, 78, 4));
-    setVoxel(2, 2, 2, CRGB(255, 140, 14));
+    // Ring-only explosion waves: an orange impact runs out from a changing origin.
+    const uint8_t centre = uint8_t(elapsed / 860UL) % MOOD_RING_LEDS;
+    const uint8_t radius = uint8_t(elapsed / 145UL) % 7;
+    for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
+      uint8_t distance = abs(int(ringPixel) - int(centre));
+      distance = min<uint8_t>(distance, MOOD_RING_LEDS - distance);
+      if (distance == radius) leds[MOOD_RING_START + ringPixel] = CRGB(255, 110, 8);
+      else if (distance + 1 == radius) leds[MOOD_RING_START + ringPixel] = CRGB(115, 20, 0);
+    }
+  }
+  for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
+    leds[MOOD_RING_START + ringPixel].nscale8_video(MOOD_RING_BRIGHTNESS);
   }
 }
 
@@ -1386,6 +1417,7 @@ void renderCurrentPattern() {
   if (secretScene != 255) {
     if (millis() - secretStartedAt < 5200UL) {
       renderSecretScene(t);
+      renderSecretMoodRing();
       return;
     }
     secretScene = 255;
@@ -1436,37 +1468,112 @@ void renderCurrentPattern() {
 
 void renderMoodRing(float t) {
   // The ring follows cube LED 124's DOUT. Assign it after every scene so it
-  // cannot consume, fade, or otherwise alter a matrix voxel. Keep it low until
-  // the physical enclosure, supply voltage, and thermal behaviour are checked.
+  // cannot consume, fade, or otherwise alter a matrix voxel. Each scene uses
+  // only twelve inexpensive sin8-based accents; no extra voxel-frame is needed.
   CRGB mood = CRGB(12, 24, 30);
-  switch (currentPattern) {
-    case PATTERN_AQUARIUM:
-      mood = CHSV(151, 210, 78 + scale8(sin8(uint8_t(t * 28.0f)), 84));
-      break;
-    case PATTERN_FAIRY_BOX:
-      mood = CHSV(95, 235, 54 + scale8(sin8(uint8_t(t * 42.0f)), 110));
-      break;
-    case PATTERN_ZARCH:
-      mood = zarchImpactLife ? CRGB(255, 58, 8)
-        : (zarchBeat == ZARCH_RECOVERY ? CRGB(8, 80, 36) : CRGB(18, 126, 118));
-      break;
-    case PATTERN_STARGATE:
-      mood = CRGB(18, 40, 155);
-      break;
-    case PATTERN_BLACK_HOLE:
-      mood = CHSV(180, 200, 32 + scale8(sin8(uint8_t(t * 18.0f)), 72));
-      break;
-    case PATTERN_FIRE:
-    case PATTERN_INTENSE_FIRE:
-    case PATTERN_BLUE_FIRE:
-    case PATTERN_FIREWORKS:
-      mood = CRGB(130, 24, 3);
-      break;
-    default:
-      break;
-  }
-  mood.nscale8_video(MOOD_RING_BRIGHTNESS);
   for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
+    const uint8_t phase = uint8_t(t * 42.0f) + ringPixel * 21;
+    const uint8_t wave = sin8(phase);
+    switch (currentPattern) {
+      case PATTERN_AQUARIUM:
+        // Slow aqua caustics travel around the rear edge while the frameless
+        // matrix remains entirely available for water and fish.
+        mood = CHSV(146 + scale8(wave, 13), 220, 135 + scale8(wave, 105));
+        break;
+      case PATTERN_FAIRY_BOX:
+        // Green base glow with small gold/magenta fairy glints on the acrylic.
+        mood = wave > 224
+          ? CHSV((ringPixel & 1) ? 226 : 35, 205, 255)
+          : CHSV(91 + (ringPixel % 3) * 6, 225, 105 + scale8(wave, 125));
+        break;
+      case PATTERN_MATRIX_RAIN:
+      case PATTERN_MATRIX_DRIFT:
+      case PATTERN_RED_MATRIX_RAIN: {
+        const uint8_t fall = (uint8_t(t * 15.0f) + ringPixel) % MOOD_RING_LEDS;
+        const bool head = fall < 2;
+        mood = currentPattern == PATTERN_RED_MATRIX_RAIN
+          ? (head ? CHSV(2, 245, 255) : CHSV(0, 250, 70 + scale8(wave, 85)))
+          : (head ? CHSV(72, 245, 255) : CHSV(96, 250, 65 + scale8(wave, 75)));
+        break;
+      }
+      case PATTERN_VECTOR_CUBE:
+      case PATTERN_PLASMA:
+      case PATTERN_SPIRALS:
+      case PATTERN_COMETS:
+      case PATTERN_CORNER_CUBES:
+      case PATTERN_CHEQUERBOARD:
+      case PATTERN_RUBIKS_CUBE:
+      case PATTERN_LISSAJOUS_RIPPLE:
+        mood = CHSV(uint8_t(t * 31.0f) + ringPixel * 21, 245, 135 + scale8(wave, 120));
+        break;
+      case PATTERN_PONG:
+      case PATTERN_BULLET_WALL:
+      case PATTERN_TRENCH_RUN:
+      case PATTERN_DEFENDER: {
+        const uint8_t tracer = (uint8_t(t * 18.0f) + ringPixel) % MOOD_RING_LEDS;
+        if (tracer < 2) mood = CRGB(235, 255, 255);
+        else mood = CHSV(145, 240, 50 + scale8(wave, 95));
+        break;
+      }
+      case PATTERN_LIFE:
+        mood = CHSV(96, 240, wave > 170 ? 255 : 55 + scale8(wave, 110));
+        break;
+      case PATTERN_CLOUDS:
+      case PATTERN_PARALLAX:
+        mood = CHSV(151 + scale8(wave, 18), 125, 80 + scale8(wave, 150));
+        break;
+      case PATTERN_GLITTER:
+        if (wave > 210) mood = CRGB::White;
+        else mood = CHSV(155, 100, 35 + scale8(wave, 55));
+        break;
+      case PATTERN_MOON_STARS:
+        if (wave > 224) mood = CRGB(120, 170, 255);
+        else mood = CHSV(28, 115, 70 + scale8(wave, 115));
+        break;
+      case PATTERN_BLOCK_RUN:
+      case PATTERN_RUNNING_LEGS:
+      case PATTERN_PYRAMID:
+      case PATTERN_PIXEL_PASTURE:
+        mood = CHSV(76 + scale8(wave, 24), 220, 95 + scale8(wave, 130));
+        break;
+      case PATTERN_BANNER:
+      case PATTERN_NIXIE_TUBE:
+        mood = CHSV(22 + scale8(wave, 13), 235, 125 + scale8(wave, 130));
+        break;
+      case PATTERN_MINESWEEPER:
+      case PATTERN_EXPLOSIONS:
+        mood = wave > 178 ? CHSV(15, 250, 255) : CHSV(3, 250, 40 + scale8(wave, 105));
+        break;
+      case PATTERN_PADDED_CELL:
+      case PATTERN_PUZZLE_CUBE:
+        mood = CHSV(0, 120, 38 + scale8(wave, 95));
+        break;
+      case PATTERN_ZARCH:
+        mood = zarchImpactLife
+          ? CHSV(12 + scale8(wave, 16), 250, 210 + scale8(wave, 45))
+          : (zarchBeat == ZARCH_RECOVERY
+              ? CHSV(105, 225, 95 + scale8(wave, 105))
+              : CHSV(133 + scale8(wave, 12), 220, 125 + scale8(wave, 105)));
+        break;
+      case PATTERN_STARGATE:
+        mood = CHSV(147 + scale8(wave, 18), 180, 120 + scale8(wave, 135));
+        break;
+      case PATTERN_BLACK_HOLE:
+        mood = CHSV(174 + scale8(wave, 46), 230, 40 + scale8(wave, 155));
+        break;
+      case PATTERN_FIRE:
+      case PATTERN_INTENSE_FIRE:
+      case PATTERN_BLUE_FIRE:
+      case PATTERN_FIREWORKS:
+        mood = currentPattern == PATTERN_BLUE_FIRE
+          ? CHSV(151 + scale8(wave, 22), 240, 105 + scale8(wave, 150))
+          : CHSV(5 + scale8(wave, 24), 250, 115 + scale8(wave, 140));
+        break;
+      default:
+        mood = CHSV(145, 140, 25 + scale8(wave, 35));
+        break;
+    }
+    mood.nscale8_video(MOOD_RING_BRIGHTNESS);
     leds[MOOD_RING_START + ringPixel] = mood;
   }
 }
@@ -1980,7 +2087,7 @@ void loop() {
   if (now - lastFrameAt >= frameIntervalMs()) {
     lastFrameAt = now;
     renderCurrentPattern();
-    renderMoodRing(effectTime());
+    if (secretScene == 255) renderMoodRing(effectTime());
     FastLED.show();
   }
 }

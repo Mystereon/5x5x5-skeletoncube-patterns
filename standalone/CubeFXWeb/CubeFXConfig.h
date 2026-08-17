@@ -29,8 +29,8 @@
 #define CUBEFX_LAYERS 5
 #define CUBEFX_MATRIX_LEDS (CUBEFX_COLUMNS * CUBEFX_ROWS * CUBEFX_LAYERS)
 #define CUBEFX_MOOD_LED_COUNT 12
-// Applied before FastLED's global brightness limit. 48/255 is deliberately
-// conservative for the first power-up of the rear ring; raise only after
-// checking enclosure glow, supply voltage, and LED temperature.
-#define CUBEFX_MOOD_RING_BRIGHTNESS 48
+// Applied before FastLED's global brightness limit. 160/255 makes the acrylic
+// enclosure visibly part of a scene while the global brightness cap still
+// protects the full 137-LED installation.
+#define CUBEFX_MOOD_RING_BRIGHTNESS 160
 #define CUBEFX_TOTAL_LEDS (CUBEFX_MATRIX_LEDS + CUBEFX_MOOD_LED_COUNT)

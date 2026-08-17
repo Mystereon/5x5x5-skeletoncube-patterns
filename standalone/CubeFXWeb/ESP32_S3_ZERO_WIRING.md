@@ -26,10 +26,10 @@ For an S3-Zero build, replace only the board-pin definitions in `CubeFXConfig.h`
 #define CUBEFX_PRIMARY_BUTTON_PIN 2
 #define CUBEFX_SECONDARY_BUTTON_PIN 4
 #define CUBEFX_MOOD_LED_COUNT     12
-#define CUBEFX_MOOD_RING_BRIGHTNESS 48
+#define CUBEFX_MOOD_RING_BRIGHTNESS 160
 ```
 
-Leave the cube geometry at 5 × 5 × 5. The resulting `CUBEFX_TOTAL_LEDS` is **137**: 125 cube voxels followed by the 12-pixel ring. `CUBEFX_MOOD_RING_BRIGHTNESS = 48` is intentionally conservative and is also subject to CubeFX’s global FastLED brightness setting of 100. Select an **ESP32-S3** board in Arduino IDE; the S3-Zero’s native USB design may require holding **BOOT** (GPIO0) while connecting USB, then using RESET as described by Waveshare. [1]
+Leave the cube geometry at 5 × 5 × 5. The resulting `CUBEFX_TOTAL_LEDS` is **137**: 125 cube voxels followed by the 12-pixel ring. `CUBEFX_MOOD_RING_BRIGHTNESS = 160` makes the acrylic enclosure part of each scene and is still subject to CubeFX’s global FastLED brightness setting of 100. Select an **ESP32-S3** board in Arduino IDE; the S3-Zero’s native USB design may require holding **BOOT** (GPIO0) while connecting USB, then using RESET as described by Waveshare. [1]
 
 ### Alternative pad options
 

@@ -5,11 +5,11 @@ No one can prove that CubeFX has secrets. Still, after midnight, owners of skele
 | Rumour | What a witness claims to have seen |
 |---|---|
 | **The Red Eye** | A single ember-red eye scans the empty cube, pauses as if it has noticed someone, and vanishes. |
-| **The 126th Light** | A full 5×5×5 cube briefly appears to contain one more point of light than its wiring diagram permits. |
-| **Green Door** | Matrix rain freezes, turns sideways, and opens a green line through the centre of the volume. |
-| **The Cold Signal** | A cold-blue pulse crosses every layer in strict time, as though the cube were replying to a distant transmitter. |
-| **MysterEon’s Lantern** | The frame darkens, then an impossible warm beacon traces a little route through the cube before returning to the current effect. |
+| **The Back-Room Pulse** | The cube goes entirely dark while a slow, warm flash comes only from the rear enclosure. |
+| **Green Door** | The rear ring becomes a small blue-and-amber clock face, apparently keeping a time of its own. |
+| **The Cold Signal** | A five-step warning seems to count down only around the acrylic edge, ending in a brief pale release. |
+| **MysterEon’s Lantern** | The cube stays dark while orange shockwaves bloom around the rear ring before the current effect returns. |
 
 The alleged activation methods are all different. One supposedly involves a banner message, one a certain sequence of modes, one a button rhythm, one a control-setting coincidence, and one a patient observer. The effect is temporary and always returns to ordinary CubeFX behaviour; no data is written and no hardware setting changes.
 
-> If you discover one, do not immediately explain it to everyone else. Let the next cube owner have a little mystery.
+> The rear-ring pulse is deliberately slow and warm rather than a high-frequency white flash. If you discover a secret, do not immediately explain it to everyone else. Let the next cube owner have a little mystery.

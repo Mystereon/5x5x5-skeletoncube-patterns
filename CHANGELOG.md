@@ -2,6 +2,14 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.9 — Reactive rear ring and hidden ring scenes
+
+The 12-pixel rear ring is now a **second reactive visual plane** across the CubeFX gallery. Matrix rain has moving heads, plasma and shape scenes use rainbow flow, arcade scenes use a bright tracer, Life and landscape scenes breathe, and impact scenes carry a stronger orange alert. Fish Tank and Fairies remain deliberately frameless inside the cube: the acrylic enclosure and its ring now provide their visible frame.
+
+Four existing hidden-scene activation routes now lead to **ring-only** effects while all 125 matrix voxels stay black: a slow warm pulse, a compact blue-and-amber clock face, a five-step countdown, and outward orange explosion waves. The Red Eye remains the lone cube apparition. The secret-ring strobe is deliberately slow and warm rather than a high-frequency white flash.
+
+The rear-ring scene cap is now `CUBEFX_MOOD_RING_BRIGHTNESS = 160`, before the existing FastLED global brightness of 100. The verified ESP32-S3 Huge APP build measures **1,315,335 bytes / 41% flash** and **53,760 bytes / 16% global RAM**.
+
 ## v0.6.8 — 12-pixel rear mood ring
 
 The enclosure output after the 125-voxel cube is now a **12-pixel rear-facing WS2812B mood ring**, producing a 137-output FastLED chain. Outputs 125–136 are assigned after every matrix scene, so they cannot be consumed by a cube renderer. Fish Tank, Fairies, Zarch, Stargate, Black Hole, and the fire-family scenes retain their matching enclosure mood colours across the full ring.
