@@ -73,11 +73,13 @@ constexpr uint8_t LAYERS = CUBEFX_LAYERS;
 constexpr uint8_t N = COLUMNS;
 constexpr uint16_t MATRIX_LEDS = CUBEFX_MATRIX_LEDS;
 constexpr uint16_t NUM_LEDS = CUBEFX_TOTAL_LEDS;
-constexpr uint16_t MOOD_LED_INDEX = MATRIX_LEDS;
+constexpr uint16_t MOOD_RING_START = MATRIX_LEDS;
+constexpr uint8_t MOOD_RING_LEDS = CUBEFX_MOOD_LED_COUNT;
+constexpr uint8_t MOOD_RING_BRIGHTNESS = CUBEFX_MOOD_RING_BRIGHTNESS;
 static_assert(COLUMNS == 5 && ROWS == 5 && LAYERS == 5,
   "CubeFXWeb v0.5 patterns currently require a 5x5x5 cube. Use the Android setup total as a planning value for other dimensions.");
-static_assert(MATRIX_LEDS == 125 && NUM_LEDS == 126,
-  "The ESP32-S3 enclosure profile expects a 125-voxel matrix plus one mood LED.");
+static_assert(MATRIX_LEDS == 125 && MOOD_RING_LEDS == 12 && NUM_LEDS == 137,
+  "The ESP32-S3 enclosure profile expects a 125-voxel matrix plus a 12-pixel mood ring.");
 #define DATA_PIN CUBEFX_LED_DATA_PIN
 #define CHIPSET WS2812B
 #define COLOR_ORDER GRB
@@ -89,8 +91,8 @@ constexpr bool FLIP_Z = false;
 constexpr bool SERPENTINE_ROWS = false;
 constexpr bool SERPENTINE_LAYERS = false;
 
-// LEDs 0–124 are always the physical 5×5×5 cube. LED 125 is a separate
-// enclosure-edge mood light and is written only after every matrix renderer.
+// LEDs 0–124 are always the physical 5×5×5 cube. LEDs 125–136 are the
+// rear-facing enclosure mood ring and are written only after every matrix renderer.
 CRGB leds[NUM_LEDS];
 uint8_t brightness = DEFAULT_BRIGHTNESS;
 
@@ -1432,11 +1434,11 @@ void renderCurrentPattern() {
   }
 }
 
-void renderMoodLight(float t) {
-  // LED 125 follows the cube's final DOUT and is intentionally assigned after
-  // every pattern. It therefore cannot consume a matrix voxel or be faded by a
-  // normal renderer.
-  CRGB mood = CRGB(4, 8, 10);
+void renderMoodRing(float t) {
+  // The ring follows cube LED 124's DOUT. Assign it after every scene so it
+  // cannot consume, fade, or otherwise alter a matrix voxel. Keep it low until
+  // the physical enclosure, supply voltage, and thermal behaviour are checked.
+  CRGB mood = CRGB(12, 24, 30);
   switch (currentPattern) {
     case PATTERN_AQUARIUM:
       mood = CHSV(151, 210, 78 + scale8(sin8(uint8_t(t * 28.0f)), 84));
@@ -1463,7 +1465,10 @@ void renderMoodLight(float t) {
     default:
       break;
   }
-  leds[MOOD_LED_INDEX] = mood;
+  mood.nscale8_video(MOOD_RING_BRIGHTNESS);
+  for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
+    leds[MOOD_RING_START + ringPixel] = mood;
+  }
 }
 
 void advancePattern() {
@@ -1975,7 +1980,7 @@ void loop() {
   if (now - lastFrameAt >= frameIntervalMs()) {
     lastFrameAt = now;
     renderCurrentPattern();
-    renderMoodLight(effectTime());
+    renderMoodRing(effectTime());
     FastLED.show();
   }
 }

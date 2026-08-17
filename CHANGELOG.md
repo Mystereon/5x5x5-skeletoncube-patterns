@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.8 — 12-pixel rear mood ring
+
+The enclosure output after the 125-voxel cube is now a **12-pixel rear-facing WS2812B mood ring**, producing a 137-output FastLED chain. Outputs 125–136 are assigned after every matrix scene, so they cannot be consumed by a cube renderer. Fish Tank, Fairies, Zarch, Stargate, Black Hole, and the fire-family scenes retain their matching enclosure mood colours across the full ring.
+
+The ring starts with `CUBEFX_MOOD_RING_BRIGHTNESS = 48` before the existing FastLED global brightness of 100 is applied. This is intentionally cautious for the first physical power-up; check supply voltage, enclosure illumination, and temperature before increasing the macro. The ESP32-S3 Huge APP build verified at **1,314,127 bytes / 41% flash** and **53,760 bytes / 16% global RAM**.
+
 ## v0.6.7 — Standalone Zarch terrain-cache synchronisation
 
 The source sketch in `standalone/CubeFXPatternDemos/ZarchVoxelDefender` and its generated canonical counterpart in `patterns/56_ZarchVoxelDefender` now match CubeFXWeb’s compact terrain representation. The 125-voxel `CRGB` terrain frame has been replaced with 25 `{ height, tint }` terrain columns, reducing fixed terrain storage from **375 bytes to 50 bytes** while retaining the same seeded low-poly terrain appearance.

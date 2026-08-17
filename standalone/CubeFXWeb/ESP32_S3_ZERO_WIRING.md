@@ -9,11 +9,12 @@ This guidance applies to the compact **Waveshare ESP32-S3-Zero** board, includin
 | CubeFX function | ESP32-S3-Zero GPIO | Wiring | Why |
 |---|---:|---|---|
 | WS2812B cube DIN | **GPIO6** | GPIO6 → 330–470 Ω series resistor → level shifter → cube DIN | A normal bidirectional GPIO, clear of S3 boot strapping, USB/JTAG, onboard RGB, UART labels, and S3-Zero PSRAM wiring. This is the cleanest route for the user’s finished enclosure. |
+| 12-pixel rear mood ring | Cube LED 124 DOUT | Cube LED 124 DOUT → ring DIN; leave the ring DOUT open unless another controlled output is deliberately added later | The ring is **after** the 125-voxel cube in the same serial chain, at output indices 125–136. It is not a parallel branch. |
 | Button 1 / primary | **GPIO2** | Momentary switch from GPIO2 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-primary, long press opens Banner mode. |
 | Button 2 / secondary | **GPIO4** | Momentary switch from GPIO4 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-secondary, long press advances to the next pattern and enters manual mode. |
 | Cube ground | **GND** | Connect to the cube power supply ground | Required common reference for the data signal. |
 
-Use a **74AHCT125**, **74HCT245**, or similar 5 V-tolerant logic level shifter between GPIO6 and a 5 V WS2812B cube. Do not power 125 LEDs from the S3-Zero board: Waveshare rates its onboard regulator at 800 mA, whereas the cube needs its own properly sized 5 V supply. [1]
+Use a **74AHCT125**, **74HCT245**, or similar 5 V-tolerant logic level shifter between GPIO6 and a 5 V WS2812B cube. Do not power the 125-LED cube plus 12-pixel ring from the S3-Zero board: Waveshare rates its onboard regulator at 800 mA, whereas the enclosure needs its own properly sized 5 V supply. [1]
 
 ## `CubeFXConfig.h` change
 
@@ -24,9 +25,11 @@ For an S3-Zero build, replace only the board-pin definitions in `CubeFXConfig.h`
 #define CUBEFX_LED_DATA_PIN       6
 #define CUBEFX_PRIMARY_BUTTON_PIN 2
 #define CUBEFX_SECONDARY_BUTTON_PIN 4
+#define CUBEFX_MOOD_LED_COUNT     12
+#define CUBEFX_MOOD_RING_BRIGHTNESS 48
 ```
 
-Leave the cube geometry at 5 × 5 × 5 and `CUBEFX_TOTAL_LEDS` at 125 for the present cube. Select an **ESP32-S3** board in Arduino IDE; the S3-Zero’s native USB design may require holding **BOOT** (GPIO0) while connecting USB, then using RESET as described by Waveshare. [1]
+Leave the cube geometry at 5 × 5 × 5. The resulting `CUBEFX_TOTAL_LEDS` is **137**: 125 cube voxels followed by the 12-pixel ring. `CUBEFX_MOOD_RING_BRIGHTNESS = 48` is intentionally conservative and is also subject to CubeFX’s global FastLED brightness setting of 100. Select an **ESP32-S3** board in Arduino IDE; the S3-Zero’s native USB design may require holding **BOOT** (GPIO0) while connecting USB, then using RESET as described by Waveshare. [1]
 
 ### Alternative pad options
 

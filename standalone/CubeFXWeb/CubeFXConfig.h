@@ -10,7 +10,7 @@
 
   ESP32-S3 Zero enclosure profile:
   - GPIO6 is the single WS2812B data chain: 125 skeletal-cube LEDs followed
-    by one external acrylic-edge mood LED.
+    by a 12-pixel rear-facing enclosure mood ring.
   - GPIO2 is the primary button and GPIO4 is the secondary button. Both
     normally-open switches connect to GND and use INPUT_PULLUP.
   - GPIO0 remains BOOT, GPIO21 is the onboard RGB LED, GPIO33–37 belong to
@@ -28,5 +28,9 @@
 #define CUBEFX_ROWS 5
 #define CUBEFX_LAYERS 5
 #define CUBEFX_MATRIX_LEDS (CUBEFX_COLUMNS * CUBEFX_ROWS * CUBEFX_LAYERS)
-#define CUBEFX_MOOD_LED_COUNT 1
+#define CUBEFX_MOOD_LED_COUNT 12
+// Applied before FastLED's global brightness limit. 48/255 is deliberately
+// conservative for the first power-up of the rear ring; raise only after
+// checking enclosure glow, supply voltage, and LED temperature.
+#define CUBEFX_MOOD_RING_BRIGHTNESS 48
 #define CUBEFX_TOTAL_LEDS (CUBEFX_MATRIX_LEDS + CUBEFX_MOOD_LED_COUNT)
