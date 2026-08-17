@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.4 — Zarch: Voxel Defender
+
+Added **Zarch: Voxel Defender** as canonical pattern 56 and CubeFXWeb mode 39. The compact scene flies a lime/cyan craft over green voxel terrain while two red landers descend, forward shots intercept them, and short orange sparks mark impacts. Short primary reseeds the terrain; short secondary fires. Global long-press Banner and Next actions remain unchanged.
+
+The terrain renderer uses a 125-element `CRGB` lookup table. Terrain heights and colours are generated only when the scene resets; each frame begins with a direct cached-buffer copy before moving entities are overlaid. CubeFXWeb compiles for ESP32-C3 at **1,464,756 bytes** of program storage with **45,244 bytes** of global RAM. The standalone Zarch sketch compiles at **433,164 bytes** and **20,224 bytes** of global RAM. Android phone and Galaxy Watch catalogs now expose canonical ID 56.
+
 ## v0.6.2 — Lissajous ripple and articulated Walking Legs
 
 Added **Lissajous Layer Ripple** as canonical pattern 55 and as an embedded CubeFXWeb mode. Its bright trace lives on layer 3 at rest and only ripples into layers 2 and 4, retaining deliberate negative space. Reworked **Running Legs** into a fluid hip–thigh–knee–shin–foot stride with opposing arm swing, so knees visibly rise during the swing phase rather than jumping between two static poses. CubeFXWeb now exposes 38 selectable modes and the canonical standalone library contains 55 effects.

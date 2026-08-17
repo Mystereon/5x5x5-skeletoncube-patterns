@@ -195,6 +195,7 @@ enum Pattern : uint8_t {
   PATTERN_PUZZLE_CUBE,
   PATTERN_RUBIKS_CUBE,
   PATTERN_LISSAJOUS_RIPPLE,
+  PATTERN_ZARCH,
   PATTERN_COUNT
 };
 
@@ -206,7 +207,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -330,6 +331,127 @@ void renderLissajousRipple(float t) {
     const uint8_t value = 130 + uint8_t((ripple + 1.0f) * 62.0f);
     addVoxel(x, y, z, CHSV(lissajousHue + sample * 4, 225, value));
     if (z != 2) addVoxel(x, y, 2, CHSV(lissajousHue + sample * 4, 190, 42));
+  }
+}
+
+// Zarch: Voxel Defender -------------------------------------------------------
+// Terrain is a complete 125-voxel colour cache. It is rebuilt only when the
+// scene reseeds; every animation frame merely copies the cached scene and adds
+// the moving craft, landers, laser, and a small impact spark.
+constexpr uint8_t ZARCH_ENEMY_COUNT = 2;
+CRGB zarchTerrainLut[NUM_LEDS];
+int8_t zarchCraftX = 2;
+int8_t zarchEnemyX[ZARCH_ENEMY_COUNT] = {0, 4};
+int8_t zarchEnemyY[ZARCH_ENEMY_COUNT] = {4, 3};
+bool zarchEnemyAlive[ZARCH_ENEMY_COUNT] = {true, true};
+bool zarchShotActive = false;
+int8_t zarchShotX = 2;
+int8_t zarchShotY = 1;
+uint8_t zarchImpactLife = 0;
+int8_t zarchImpactX = 2;
+int8_t zarchImpactY = 2;
+uint32_t zarchLastCraftStepAt = 0;
+uint32_t zarchLastEnemyStepAt = 0;
+uint32_t zarchLastShotStepAt = 0;
+
+void buildZarchTerrainLUT() {
+  fill_solid(zarchTerrainLut, NUM_LEDS, CRGB::Black);
+  for (uint8_t y = 0; y < N; ++y) {
+    for (uint8_t x = 0; x < N; ++x) {
+      // The height field is generated once. The render loop never asks for a
+      // root, sine, noise sample, or terrain coordinate conversion.
+      uint8_t height = random8() < 48 ? 1 : 0;
+      if (random8() < 18) height = 2;
+      for (uint8_t z = 0; z <= height; ++z) {
+        const uint8_t green = 52 + z * 28 + random8(22);
+        zarchTerrainLut[indexFromXYZ(x, y, z)] = z == height
+          ? CRGB(18, green + 34, 9)
+          : CRGB(10, green, 4);
+      }
+    }
+  }
+}
+
+void resetZarchScene() {
+  buildZarchTerrainLUT();
+  zarchCraftX = 2;
+  zarchEnemyX[0] = 0; zarchEnemyY[0] = 4;
+  zarchEnemyX[1] = 4; zarchEnemyY[1] = 3;
+  zarchEnemyAlive[0] = true; zarchEnemyAlive[1] = true;
+  zarchShotActive = false;
+  zarchImpactLife = 0;
+  zarchLastCraftStepAt = millis();
+  zarchLastEnemyStepAt = millis();
+  zarchLastShotStepAt = millis();
+}
+
+void fireZarchShot() {
+  if (zarchShotActive) return;
+  zarchShotActive = true;
+  zarchShotX = zarchCraftX;
+  zarchShotY = 1;
+}
+
+void updateZarchScene() {
+  const uint32_t now = millis();
+  if (now - zarchLastCraftStepAt >= 430U) {
+    zarchLastCraftStepAt = now;
+    zarchCraftX = (zarchCraftX + 1) % N;
+  }
+  if (now - zarchLastEnemyStepAt >= 570U) {
+    zarchLastEnemyStepAt = now;
+    for (uint8_t i = 0; i < ZARCH_ENEMY_COUNT; ++i) {
+      if (!zarchEnemyAlive[i]) continue;
+      if (zarchEnemyX[i] < zarchCraftX) ++zarchEnemyX[i];
+      else if (zarchEnemyX[i] > zarchCraftX) --zarchEnemyX[i];
+      --zarchEnemyY[i];
+      if (zarchEnemyY[i] < 0) resetZarchScene();
+    }
+  }
+  if (zarchShotActive && now - zarchLastShotStepAt >= 105U) {
+    zarchLastShotStepAt = now;
+    ++zarchShotY;
+    if (zarchShotY >= N) zarchShotActive = false;
+  }
+  if (zarchShotActive) {
+    for (uint8_t i = 0; i < ZARCH_ENEMY_COUNT; ++i) {
+      if (zarchEnemyAlive[i] && zarchShotX == zarchEnemyX[i] && zarchShotY == zarchEnemyY[i]) {
+        zarchEnemyAlive[i] = false;
+        zarchShotActive = false;
+        zarchImpactX = zarchEnemyX[i];
+        zarchImpactY = zarchEnemyY[i];
+        zarchImpactLife = 8;
+      }
+    }
+  }
+  if (zarchImpactLife > 0) --zarchImpactLife;
+  if (!zarchEnemyAlive[0] && !zarchEnemyAlive[1]) resetZarchScene();
+}
+
+void renderZarch(float t) {
+  (void)t;
+  updateZarchScene();
+  ::memcpy(leds, zarchTerrainLut, sizeof(leds));
+
+  // Lime/cyan player craft high above the voxel terrain.
+  setVoxel(zarchCraftX, 1, 4, CRGB(110, 255, 40));
+  setVoxel(zarchCraftX - 1, 0, 3, CRGB(0, 105, 105));
+  setVoxel(zarchCraftX + 1, 0, 3, CRGB(0, 105, 105));
+  setVoxel(zarchCraftX, 0, 3, CRGB(180, 255, 80));
+
+  for (uint8_t i = 0; i < ZARCH_ENEMY_COUNT; ++i) {
+    if (!zarchEnemyAlive[i]) continue;
+    setVoxel(zarchEnemyX[i], zarchEnemyY[i], 3, CRGB(255, 36, 8));
+    setVoxel(zarchEnemyX[i], zarchEnemyY[i], 2, CRGB(100, 9, 2));
+  }
+  if (zarchShotActive) setVoxel(zarchShotX, zarchShotY, 4, CRGB(210, 255, 255));
+  if (zarchImpactLife > 0) {
+    const uint8_t value = zarchImpactLife * 30;
+    addVoxel(zarchImpactX, zarchImpactY, 3, CRGB(value, value / 3, 0));
+    addVoxel(zarchImpactX - 1, zarchImpactY, 3, CRGB(value / 2, value / 7, 0));
+    addVoxel(zarchImpactX + 1, zarchImpactY, 3, CRGB(value / 2, value / 7, 0));
+    addVoxel(zarchImpactX, zarchImpactY - 1, 3, CRGB(value / 2, value / 7, 0));
+    addVoxel(zarchImpactX, zarchImpactY + 1, 3, CRGB(value / 2, value / 7, 0));
   }
 }
 
@@ -1218,6 +1340,7 @@ void renderCurrentPattern() {
     case PATTERN_PUZZLE_CUBE: renderPuzzleCube(t); break;
     case PATTERN_RUBIKS_CUBE: renderRubiksCube(t); break;
     case PATTERN_LISSAJOUS_RIPPLE: renderLissajousRipple(t); break;
+    case PATTERN_ZARCH: renderZarch(t); break;
     default: break;
   }
 }
@@ -1321,6 +1444,10 @@ void runShortPatternAction(bool primary) {
     case PATTERN_LISSAJOUS_RIPPLE:
       if (primary) lissajousHue += 37;
       else cycleSpeed();
+      break;
+    case PATTERN_ZARCH:
+      if (primary) resetZarchScene();
+      else fireZarchShot();
       break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
@@ -1551,6 +1678,7 @@ bool selectCanonicalPattern(int canonicalId) {
     case 53: currentPattern = PATTERN_PUZZLE_CUBE; break;
     case 54: currentPattern = PATTERN_RUBIKS_CUBE; break;
     case 55: currentPattern = PATTERN_LISSAJOUS_RIPPLE; break;
+    case 56: currentPattern = PATTERN_ZARCH; break;
     default: return false;
   }
   autoCycle = false;
@@ -1688,6 +1816,7 @@ void setup() {
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
   buildGeometryLUT();
   randomSeed(esp_random());
+  resetZarchScene();
   seedLife();
   loadButtonPinPreferences();
   setupButtons();

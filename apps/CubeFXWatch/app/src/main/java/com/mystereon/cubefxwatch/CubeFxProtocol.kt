@@ -13,7 +13,7 @@ object CubeFxProtocol {
     /**
      * These are the modes embedded in CubeFXWeb. Canonical IDs are
      * intentionally retained because the ESP32 BLE service selects by the
-     * 54-pattern library's stable numbering rather than enum position.
+     * 56-pattern library's stable numbering rather than enum position.
      */
     val embeddedPatterns = listOf(
         Pattern(1, "Red Vector Cube"), Pattern(9, "3-D Matrix Rain"),
@@ -34,7 +34,8 @@ object CubeFxProtocol {
         Pattern(48, "Nixie Tube"), Pattern(49, "Black Hole Vortex"),
         Pattern(50, "Stargate Dial-Up"), Pattern(51, "3-D Defender"),
         Pattern(52, "3-D Chequerboard"), Pattern(53, "Hellraiser Puzzle Cube"),
-        Pattern(54, "3-D Rubik's Cube")
+        Pattern(54, "3-D Rubik's Cube"), Pattern(55, "Lissajous Layer Ripple"),
+        Pattern(56, "Zarch: Voxel Defender")
     )
 
     fun patternCommand(pattern: Pattern) = "{\"op\":\"pattern\",\"id\":${pattern.canonicalId}}"

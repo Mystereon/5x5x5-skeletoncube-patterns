@@ -1,6 +1,6 @@
 # Standalone pattern library
 
-This folder now contains the canonical **55 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.
+This folder now contains the canonical **56 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.
 
 | # | Pattern | Description |
 |---:|---|---|
@@ -59,6 +59,7 @@ This folder now contains the canonical **55 distinct visual effects**. Every num
 | 53 | [`Hellraiser Puzzle Cube`](53_HellraiserPuzzleCube/) | Dark brass labyrinth cube with blue seams, amber glyphs, and mechanical phases. |
 | 54 | [`3-D Rubik's Cube`](54_RubiksCube3D/) | Inset coloured cube with twisting scrambled layers and a solved reveal. |
 | 55 | [`Lissajous Layer Ripple`](55_LissajousRipple/) | A 3-D Lissajous trace resting on layer 3, with crests rippling only into layers 2 and 4. |
+| 56 | [`Zarch: Voxel Defender`](56_ZarchVoxelDefender/) | A compact voxel terrain-defence scene with a flying craft, landers, forward shots, and cached terrain. |
 
 ## Controller examples
 

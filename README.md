@@ -66,6 +66,7 @@ patterns/                             # Canonical 55 standalone visual effects
   53_HellraiserPuzzleCube/
   54_RubiksCube3D/
   55_LissajousRipple/
+  56_ZarchVoxelDefender/
 controllers/                           # ESP32-C3 hardware control examples
   29_ESP32C3_NextPatternButton/
   30_ESP32C3_DualButtonController/
@@ -74,20 +75,20 @@ standalone/                            # Standalone application-style sketches
   CubeFXWeb/
   CubeFXPatternDemos/                  # Alternate CubeFX demo source collection
 apps/                                  # Native Android companion source projects
-  CubeFXPhone/                         # 54-pattern Android phone controller
+  CubeFXPhone/                         # 56-pattern Android phone controller
   CubeFXWatch/                         # Galaxy Watch8 Classic Wear OS controller
-tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–55
+tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–56
 ```
 
-[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **55 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–55 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
+[`patterns/`](patterns/) is now the canonical visual-effect library: it contains **56 distinct, directly uploadable standalone Arduino projects**. Every numbered folder has a matching `.ino` file and its own README. Patterns 01–28 use a same-folder `DemoTypes.h` only to make Arduino’s auto-prototype process reliable; patterns 29–56 are single-file CubeFX projects. No effect project depends on the master sketch, the browser controller, or a relative include outside its own folder.
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
-[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **38 selectable CubeFX modes**. Its new Lissajous Layer Ripple rests on layer 3 and makes restrained wave crests on layers 2 and 4. Running Legs now uses a hip–knee–ankle gait rather than angular alternating poses. Its fixed 5×5×5 geometry—central radii, moon shading, Black Hole polar angles, explosion radii, and Stargate ring radii—is calculated once in `setup()` and reused during every frame, so heavy render loops avoid repeated square roots and polar-angle work. The controller retains Black Hole Vortex, Stargate Dial-Up, 3-D Defender, 3-D Chequerboard, Hellraiser Puzzle Cube, 3-D Rubik’s Cube, green and red Matrix rains, genuine single-player Pong, Voxel Minesweeper, Big Moon & Stars, Nixie Tube, Bullet Wall, high-impact fire, fireworks, Pixel Pasture, and a configurable 3×5/5×5 perimeter message.
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **39 selectable CubeFX modes**. Zarch: Voxel Defender adds a flying lime craft, two descending red landers, forward shots, and orange impact sparks over a cached voxel landscape. Its entire 125-voxel terrain colour field is generated only when a scene is seeded and copied directly into the frame buffer thereafter. Lissajous Layer Ripple rests on layer 3 and makes restrained wave crests on layers 2 and 4, while Running Legs uses a hip–knee–ankle gait rather than angular alternating poses. Fixed 5×5×5 geometry—central radii, moon shading, Black Hole polar angles, explosion radii, and Stargate ring radii—is calculated once in `setup()` and reused during every frame, so heavy render loops avoid repeated square roots and polar-angle work.
 
-[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube, 49–54 explore negative space, sci-fi, retro arcade, and puzzle-cube scenes, and 55 is the restrained layer-3 Lissajous ripple.
+[`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube, 49–54 explore negative space, sci-fi, retro arcade, and puzzle-cube scenes, 55 is the restrained layer-3 Lissajous ripple, and 56 is Zarch: Voxel Defender.
 
-The native Kotlin/Jetpack Compose source for the Android phone controller and the Galaxy Watch8 Classic companion is in [`apps/`](apps/). The phone app offers the 55-pattern browser, live engine/Banner controls, an ESP32 wiring-and-dimensions setup screen, and a Watch route. The Watch app targets the rotating bezel as its primary pattern selector. Build and installation notes are in [`apps/README.md`](apps/README.md).
+The native Kotlin/Jetpack Compose source for the Android phone controller and the Galaxy Watch8 Classic companion is in [`apps/`](apps/). The phone app offers the 56-pattern browser, live engine/Banner controls, an ESP32 wiring-and-dimensions setup screen, and a Watch route. The Watch app targets the rotating bezel as its primary pattern selector and includes Zarch in its embedded-mode list. Build and installation notes are in [`apps/README.md`](apps/README.md).
 
 ## Hardware assumptions
 

@@ -66,6 +66,7 @@ CUBEFX_UNIQUE = [
     ('53_HellraiserPuzzleCube', 'Hellraiser Puzzle Cube', 'HellraiserPuzzleCube', 'Dark brass labyrinth cube with blue seams, amber glyphs, and mechanical phases.'),
     ('54_RubiksCube3D', '3-D Rubik\'s Cube', 'RubiksCube3D', 'Inset coloured cube with twisting scrambled layers and a solved reveal.'),
     ('55_LissajousRipple', 'Lissajous Layer Ripple', 'LissajousRipple', 'A 3-D Lissajous trace resting on layer 3, with crests rippling only into layers 2 and 4.'),
+    ('56_ZarchVoxelDefender', 'Zarch: Voxel Defender', 'ZarchVoxelDefender', 'A compact voxel terrain-defence scene with a flying craft, landers, forward shots, and cached terrain.'),
 ]
 
 # Preserve the two old controller examples in their own non-pattern location.
@@ -206,7 +207,7 @@ catalog.sort()
 lines = [
     '# Standalone pattern library',
     '',
-    'This folder now contains the canonical **55 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
+    'This folder now contains the canonical **56 distinct visual effects**. Every numbered pattern folder is a complete, directly uploadable Arduino project with a matching `.ino` file. No pattern here depends on a relative include, the web controller, or the master pattern sketch.',
     '',
     '| # | Pattern | Description |',
     '|---:|---|---|',
@@ -233,4 +234,4 @@ controller_lines = [
 ]
 (CONTROLLERS / 'README.md').write_text('\n'.join(controller_lines) + '\n', encoding='utf-8')
 
-print('Built canonical standalone pattern library: 55 effects in patterns/; controllers preserved in controllers/.')
+print('Built canonical standalone pattern library: 56 effects in patterns/; controllers preserved in controllers.')
