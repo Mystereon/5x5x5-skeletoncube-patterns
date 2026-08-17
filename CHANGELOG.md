@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.5 — Long-form self-playing Zarch
+
+Pattern 56 / CubeFXWeb mode 39 has grown into a cinematic self-playing Zarch scene. It now moves through a patrol, initial contact, crossfire, finale, and recovery sequence; the lime craft patrols and aligns itself with active landers, autonomous shots deliberately include atmospheric misses, attacks create short orange impact clusters, and a recovery pause returns the scene to calm cyan navigation lights.
+
+Zarch now holds the auto-cycle for at least **120 seconds**—or the user-selected longer cycle duration—so the complete miniature story can play. Manual selection remains unlimited; short primary resets the full scene and short secondary contributes a support shot. The 125-voxel terrain lookup table is still generated only on reseed, and the new director adds only compact byte/timer state.
+
 ## v0.6.4 — Zarch: Voxel Defender
 
 Added **Zarch: Voxel Defender** as canonical pattern 56 and CubeFXWeb mode 39. The compact scene flies a lime/cyan craft over green voxel terrain while two red landers descend, forward shots intercept them, and short orange sparks mark impacts. Short primary reseeds the terrain; short secondary fires. Global long-press Banner and Next actions remain unchanged.

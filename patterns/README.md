@@ -59,7 +59,7 @@ This folder now contains the canonical **56 distinct visual effects**. Every num
 | 53 | [`Hellraiser Puzzle Cube`](53_HellraiserPuzzleCube/) | Dark brass labyrinth cube with blue seams, amber glyphs, and mechanical phases. |
 | 54 | [`3-D Rubik's Cube`](54_RubiksCube3D/) | Inset coloured cube with twisting scrambled layers and a solved reveal. |
 | 55 | [`Lissajous Layer Ripple`](55_LissajousRipple/) | A 3-D Lissajous trace resting on layer 3, with crests rippling only into layers 2 and 4. |
-| 56 | [`Zarch: Voxel Defender`](56_ZarchVoxelDefender/) | A compact voxel terrain-defence scene with a flying craft, landers, forward shots, and cached terrain. |
+| 56 | [`Zarch: Voxel Defender`](56_ZarchVoxelDefender/) | A long-form self-playing voxel terrain-defence battle with patrols, staged lander waves, recovery pauses, forward shots, and cached terrain. |
 
 ## Controller examples
 

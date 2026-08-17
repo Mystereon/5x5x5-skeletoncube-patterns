@@ -1,6 +1,6 @@
 # 56_ZarchVoxelDefender — Zarch: Voxel Defender
 
-A compact voxel terrain-defence scene with a flying craft, landers, forward shots, and cached terrain.
+A long-form self-playing voxel terrain-defence battle with patrols, staged lander waves, recovery pauses, forward shots, and cached terrain.
 
 This is a **fully standalone, directly uploadable** Arduino FastLED sketch. It
 contains its own 5×5×5 mapper, all supporting code, `setup()`, and `loop()`.

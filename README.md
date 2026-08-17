@@ -4,7 +4,7 @@
 
 **Created by Dad (MysterEon) & Manus, 2026.** It began with a physical 125-pixel cube and a simple question—how do you make voxel shapes tumble? It is released as a public starting point for anyone building, extending, or remixing small LED cubes.
 
-![Platform](https://img.shields.io/badge/platform-Arduino-00979D) ![LEDs](https://img.shields.io/badge/LEDs-125%20WS2812B-brightgreen) ![Patterns](https://img.shields.io/badge/patterns-54-purple) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Platform](https://img.shields.io/badge/platform-Arduino-00979D) ![LEDs](https://img.shields.io/badge/LEDs-125%20WS2812B-brightgreen) ![Patterns](https://img.shields.io/badge/patterns-56-purple) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## The pattern gallery
 
@@ -47,7 +47,7 @@ The master sketch contains a sequence of **28 effects**. Each receives a deliber
 SkeletonCubePatterns/                 # The self-playing master Arduino sketch
   SkeletonCubePatterns.ino
   CubeTypes.h
-patterns/                             # Canonical 55 standalone visual effects
+patterns/                             # Canonical 56 standalone visual effects
   01_RedVectorCube/
   ...
   28_WrappingComets/
@@ -84,7 +84,7 @@ tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–56
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
-[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **39 selectable CubeFX modes**. Zarch: Voxel Defender adds a flying lime craft, two descending red landers, forward shots, and orange impact sparks over a cached voxel landscape. Its entire 125-voxel terrain colour field is generated only when a scene is seeded and copied directly into the frame buffer thereafter. Lissajous Layer Ripple rests on layer 3 and makes restrained wave crests on layers 2 and 4, while Running Legs uses a hip–knee–ankle gait rather than angular alternating poses. Fixed 5×5×5 geometry—central radii, moon shading, Black Hole polar angles, explosion radii, and Stargate ring radii—is calculated once in `setup()` and reused during every frame, so heavy render loops avoid repeated square roots and polar-angle work.
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **39 selectable CubeFX modes**. Zarch: Voxel Defender is a long-form self-playing miniature battle: a lime craft patrols a cached voxel landscape, staged red-lander waves arrive, support shots create misses and hits, orange impact clusters flash, and short recovery pauses reset the mood. It receives at least a two-minute automatic dwell, while manual selection can run indefinitely. Its 125-voxel terrain colour field is generated only when a scene is seeded and copied directly into the frame buffer thereafter. Lissajous Layer Ripple rests on layer 3 and makes restrained wave crests on layers 2 and 4, while Running Legs uses a hip–knee–ankle gait rather than angular alternating poses. Fixed 5×5×5 geometry—central radii, moon shading, Black Hole polar angles, explosion radii, and Stargate ring radii—is calculated once in `setup()` and reused during every frame, so heavy render loops avoid repeated square roots and polar-angle work.
 
 [`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube, 49–54 explore negative space, sci-fi, retro arcade, and puzzle-cube scenes, 55 is the restrained layer-3 Lissajous ripple, and 56 is Zarch: Voxel Defender.
 

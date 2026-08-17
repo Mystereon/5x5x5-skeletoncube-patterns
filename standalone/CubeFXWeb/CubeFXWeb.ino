@@ -339,6 +339,8 @@ void renderLissajousRipple(float t) {
 // scene reseeds; every animation frame merely copies the cached scene and adds
 // the moving craft, landers, laser, and a small impact spark.
 constexpr uint8_t ZARCH_ENEMY_COUNT = 2;
+constexpr uint32_t ZARCH_LONG_DWELL_MS = 120000UL; // a complete two-minute miniature battle
+constexpr uint8_t ZARCH_PATROL = 0, ZARCH_CONTACT = 1, ZARCH_CROSSFIRE = 2, ZARCH_FINALE = 3, ZARCH_RECOVERY = 4;
 CRGB zarchTerrainLut[NUM_LEDS];
 int8_t zarchCraftX = 2;
 int8_t zarchEnemyX[ZARCH_ENEMY_COUNT] = {0, 4};
@@ -350,9 +352,12 @@ int8_t zarchShotY = 1;
 uint8_t zarchImpactLife = 0;
 int8_t zarchImpactX = 2;
 int8_t zarchImpactY = 2;
+uint8_t zarchBeat = ZARCH_PATROL;
+uint32_t zarchBeatStartedAt = 0;
 uint32_t zarchLastCraftStepAt = 0;
 uint32_t zarchLastEnemyStepAt = 0;
 uint32_t zarchLastShotStepAt = 0;
+uint32_t zarchLastAutoShotAt = 0;
 
 void buildZarchTerrainLUT() {
   fill_solid(zarchTerrainLut, NUM_LEDS, CRGB::Black);
@@ -372,17 +377,45 @@ void buildZarchTerrainLUT() {
   }
 }
 
+void setZarchEnemy(uint8_t slot, int8_t x, int8_t y, bool alive) {
+  zarchEnemyX[slot] = x;
+  zarchEnemyY[slot] = y;
+  zarchEnemyAlive[slot] = alive;
+}
+
+void enterZarchBeat(uint8_t next) {
+  zarchBeat = next;
+  zarchBeatStartedAt = millis();
+  zarchShotActive = false;
+  switch (next) {
+    case ZARCH_PATROL:
+      setZarchEnemy(0, 0, 4, false); setZarchEnemy(1, 4, 4, false);
+      break;
+    case ZARCH_CONTACT:
+      setZarchEnemy(0, 0, 4, true); setZarchEnemy(1, 4, 4, false);
+      break;
+    case ZARCH_CROSSFIRE:
+      setZarchEnemy(0, 0, 4, true); setZarchEnemy(1, 4, 4, true);
+      break;
+    case ZARCH_FINALE:
+      setZarchEnemy(0, 2, 4, true); setZarchEnemy(1, 4, 3, true);
+      break;
+    case ZARCH_RECOVERY:
+      setZarchEnemy(0, 0, 4, false); setZarchEnemy(1, 4, 4, false);
+      break;
+  }
+}
+
 void resetZarchScene() {
   buildZarchTerrainLUT();
   zarchCraftX = 2;
-  zarchEnemyX[0] = 0; zarchEnemyY[0] = 4;
-  zarchEnemyX[1] = 4; zarchEnemyY[1] = 3;
-  zarchEnemyAlive[0] = true; zarchEnemyAlive[1] = true;
-  zarchShotActive = false;
   zarchImpactLife = 0;
-  zarchLastCraftStepAt = millis();
-  zarchLastEnemyStepAt = millis();
-  zarchLastShotStepAt = millis();
+  const uint32_t now = millis();
+  zarchLastCraftStepAt = now;
+  zarchLastEnemyStepAt = now;
+  zarchLastShotStepAt = now;
+  zarchLastAutoShotAt = now;
+  enterZarchBeat(ZARCH_PATROL);
 }
 
 void fireZarchShot() {
@@ -392,21 +425,55 @@ void fireZarchShot() {
   zarchShotY = 1;
 }
 
+int8_t zarchLeadEnemy() {
+  for (uint8_t i = 0; i < ZARCH_ENEMY_COUNT; ++i) if (zarchEnemyAlive[i]) return i;
+  return -1;
+}
+
+void advanceZarchBeat() {
+  if (zarchBeat == ZARCH_PATROL) enterZarchBeat(ZARCH_CONTACT);
+  else if (zarchBeat == ZARCH_CONTACT) enterZarchBeat(ZARCH_CROSSFIRE);
+  else if (zarchBeat == ZARCH_CROSSFIRE) enterZarchBeat(ZARCH_FINALE);
+  else if (zarchBeat == ZARCH_FINALE) enterZarchBeat(ZARCH_RECOVERY);
+  else resetZarchScene();
+}
+
 void updateZarchScene() {
   const uint32_t now = millis();
+  const uint32_t beatAge = now - zarchBeatStartedAt;
+  const uint32_t beatDuration = zarchBeat == ZARCH_PATROL ? 15000UL :
+    (zarchBeat == ZARCH_CONTACT ? 23000UL :
+    (zarchBeat == ZARCH_CROSSFIRE ? 30000UL :
+    (zarchBeat == ZARCH_FINALE ? 22000UL : 8000UL)));
+  if (beatAge >= beatDuration) advanceZarchBeat();
+
+  const int8_t leadEnemy = zarchLeadEnemy();
+  const int8_t desiredCraftX = leadEnemy >= 0 ? zarchEnemyX[leadEnemy] : int8_t((now / 2100UL) % N);
   if (now - zarchLastCraftStepAt >= 430U) {
     zarchLastCraftStepAt = now;
-    zarchCraftX = (zarchCraftX + 1) % N;
+    if (zarchCraftX < desiredCraftX) ++zarchCraftX;
+    else if (zarchCraftX > desiredCraftX) --zarchCraftX;
   }
-  if (now - zarchLastEnemyStepAt >= 570U) {
+  const uint16_t enemyStepMs = zarchBeat == ZARCH_CROSSFIRE ? 510U : 820U;
+  if (now - zarchLastEnemyStepAt >= enemyStepMs) {
     zarchLastEnemyStepAt = now;
     for (uint8_t i = 0; i < ZARCH_ENEMY_COUNT; ++i) {
       if (!zarchEnemyAlive[i]) continue;
       if (zarchEnemyX[i] < zarchCraftX) ++zarchEnemyX[i];
       else if (zarchEnemyX[i] > zarchCraftX) --zarchEnemyX[i];
       --zarchEnemyY[i];
-      if (zarchEnemyY[i] < 0) resetZarchScene();
+      if (zarchEnemyY[i] < 0) {
+        zarchImpactX = zarchEnemyX[i]; zarchImpactY = 0; zarchImpactLife = 10;
+        enterZarchBeat(ZARCH_RECOVERY);
+      }
     }
+  }
+  const uint16_t shotPauseMs = zarchBeat == ZARCH_PATROL ? 2100U :
+    (zarchBeat == ZARCH_CROSSFIRE ? 850U : 1150U);
+  if (!zarchShotActive && now - zarchLastAutoShotAt >= shotPauseMs &&
+      (leadEnemy < 0 || zarchCraftX == zarchEnemyX[leadEnemy])) {
+    zarchLastAutoShotAt = now;
+    fireZarchShot(); // patrol shots become cinematic misses; aimed shots hunt landers.
   }
   if (zarchShotActive && now - zarchLastShotStepAt >= 105U) {
     zarchLastShotStepAt = now;
@@ -425,13 +492,20 @@ void updateZarchScene() {
     }
   }
   if (zarchImpactLife > 0) --zarchImpactLife;
-  if (!zarchEnemyAlive[0] && !zarchEnemyAlive[1]) resetZarchScene();
+  if (!zarchEnemyAlive[0] && !zarchEnemyAlive[1] && zarchBeat != ZARCH_PATROL && zarchBeat != ZARCH_RECOVERY) {
+    advanceZarchBeat();
+  }
 }
 
 void renderZarch(float t) {
   (void)t;
   updateZarchScene();
   ::memcpy(leds, zarchTerrainLut, sizeof(leds));
+
+  const uint8_t skyPulse = sin8(millis() / 9);
+  const uint8_t patrolStar = (millis() / 680U) % N;
+  addVoxel(patrolStar, 4, 4, CRGB(0, skyPulse / 7, skyPulse / 5));
+  if (zarchBeat == ZARCH_RECOVERY) addVoxel(2, 4, 4, CRGB(0, 40 + skyPulse / 4, 35 + skyPulse / 3));
 
   // Lime/cyan player craft high above the voxel terrain.
   setVoxel(zarchCraftX, 1, 4, CRGB(110, 255, 40));
@@ -1348,8 +1422,13 @@ void renderCurrentPattern() {
 void advancePattern() {
   currentPattern = Pattern((currentPattern + 1) % PATTERN_COUNT);
   recordPatternRune(currentPattern);
+  if (currentPattern == PATTERN_ZARCH) resetZarchScene();
   patternStartedAt = millis();
   fill_solid(leds, NUM_LEDS, CRGB::Black);
+}
+
+uint32_t activePatternDwellMs() {
+  return currentPattern == PATTERN_ZARCH ? max(cycleDurationMs, ZARCH_LONG_DWELL_MS) : cycleDurationMs;
 }
 
 // -----------------------------------------------------------------------------
@@ -1551,6 +1630,7 @@ void handleControl() {
     const int value = web.arg("pattern").toInt();
     if (value >= 0 && value < PATTERN_COUNT) {
       currentPattern = Pattern(value);
+      if (currentPattern == PATTERN_ZARCH) resetZarchScene();
       recordPatternRune(currentPattern);
       autoCycle = false;
       patternStartedAt = millis();
@@ -1681,6 +1761,7 @@ bool selectCanonicalPattern(int canonicalId) {
     case 56: currentPattern = PATTERN_ZARCH; break;
     default: return false;
   }
+  if (currentPattern == PATTERN_ZARCH) resetZarchScene();
   autoCycle = false;
   recordPatternRune(currentPattern);
   patternStartedAt = millis();
@@ -1831,7 +1912,7 @@ void loop() {
   updateButtons();
 
   const uint32_t now = millis();
-  if (autoCycle && now - patternStartedAt >= cycleDurationMs) advancePattern();
+  if (autoCycle && now - patternStartedAt >= activePatternDwellMs()) advancePattern();
   if (!autoCycle && currentPattern == PATTERN_CLOUDS && secretScene == 255 && now - patternStartedAt >= 240000UL) {
     startSecretScene(4);
   }
