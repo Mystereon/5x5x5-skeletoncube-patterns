@@ -71,9 +71,13 @@ constexpr uint8_t COLUMNS = CUBEFX_COLUMNS;
 constexpr uint8_t ROWS = CUBEFX_ROWS;
 constexpr uint8_t LAYERS = CUBEFX_LAYERS;
 constexpr uint8_t N = COLUMNS;
+constexpr uint16_t MATRIX_LEDS = CUBEFX_MATRIX_LEDS;
 constexpr uint16_t NUM_LEDS = CUBEFX_TOTAL_LEDS;
+constexpr uint16_t MOOD_LED_INDEX = MATRIX_LEDS;
 static_assert(COLUMNS == 5 && ROWS == 5 && LAYERS == 5,
   "CubeFXWeb v0.5 patterns currently require a 5x5x5 cube. Use the Android setup total as a planning value for other dimensions.");
+static_assert(MATRIX_LEDS == 125 && NUM_LEDS == 126,
+  "The ESP32-S3 enclosure profile expects a 125-voxel matrix plus one mood LED.");
 #define DATA_PIN CUBEFX_LED_DATA_PIN
 #define CHIPSET WS2812B
 #define COLOR_ORDER GRB
@@ -85,6 +89,8 @@ constexpr bool FLIP_Z = false;
 constexpr bool SERPENTINE_ROWS = false;
 constexpr bool SERPENTINE_LAYERS = false;
 
+// LEDs 0–124 are always the physical 5×5×5 cube. LED 125 is a separate
+// enclosure-edge mood light and is written only after every matrix renderer.
 CRGB leds[NUM_LEDS];
 uint8_t brightness = DEFAULT_BRIGHTNESS;
 
@@ -97,8 +103,8 @@ struct VoxelGeometry {
   uint8_t blackHoleAngle;
   int8_t z2;
 };
-VoxelGeometry voxelGeometry[NUM_LEDS];
-uint8_t explosionRadius16[2][NUM_LEDS];
+VoxelGeometry voxelGeometry[MATRIX_LEDS];
+uint8_t explosionRadius16[2][MATRIX_LEDS];
 uint8_t stargateRadius16[N][N];
 
 void buildGeometryLUT() {
@@ -335,13 +341,18 @@ void renderLissajousRipple(float t) {
 }
 
 // Zarch: Voxel Defender -------------------------------------------------------
-// Terrain is a complete 125-voxel colour cache. It is rebuilt only when the
-// scene reseeds; every animation frame merely copies the cached scene and adds
-// the moving craft, landers, laser, and a small impact spark.
+// Terrain is a compact 25-column cache. It is rebuilt only when the scene
+// reseeds, then reconstructed with small integer colour math each frame. This
+// saves 325 bytes of permanent RAM compared with a full 125-voxel CRGB cache.
 constexpr uint8_t ZARCH_ENEMY_COUNT = 2;
 constexpr uint32_t ZARCH_LONG_DWELL_MS = 120000UL; // a complete two-minute miniature battle
+constexpr uint32_t AMBIENT_LONG_DWELL_MS = 90000UL; // enough time for an enclosure scene to breathe
 constexpr uint8_t ZARCH_PATROL = 0, ZARCH_CONTACT = 1, ZARCH_CROSSFIRE = 2, ZARCH_FINALE = 3, ZARCH_RECOVERY = 4;
-CRGB zarchTerrainLut[NUM_LEDS];
+struct ZarchTerrainColumn {
+  uint8_t height;
+  uint8_t greenJitter;
+};
+ZarchTerrainColumn zarchTerrainColumns[N][N];
 int8_t zarchCraftX = 2;
 int8_t zarchEnemyX[ZARCH_ENEMY_COUNT] = {0, 4};
 int8_t zarchEnemyY[ZARCH_ENEMY_COUNT] = {4, 3};
@@ -360,19 +371,13 @@ uint32_t zarchLastShotStepAt = 0;
 uint32_t zarchLastAutoShotAt = 0;
 
 void buildZarchTerrainLUT() {
-  fill_solid(zarchTerrainLut, NUM_LEDS, CRGB::Black);
   for (uint8_t y = 0; y < N; ++y) {
     for (uint8_t x = 0; x < N; ++x) {
-      // The height field is generated once. The render loop never asks for a
-      // root, sine, noise sample, or terrain coordinate conversion.
+      // The height field and colour variation are generated once. The render
+      // loop never asks for a root, sine, noise sample, or random value.
       uint8_t height = random8() < 48 ? 1 : 0;
       if (random8() < 18) height = 2;
-      for (uint8_t z = 0; z <= height; ++z) {
-        const uint8_t green = 52 + z * 28 + random8(22);
-        zarchTerrainLut[indexFromXYZ(x, y, z)] = z == height
-          ? CRGB(18, green + 34, 9)
-          : CRGB(10, green, 4);
-      }
+      zarchTerrainColumns[y][x] = {height, random8(22)};
     }
   }
 }
@@ -500,7 +505,14 @@ void updateZarchScene() {
 void renderZarch(float t) {
   (void)t;
   updateZarchScene();
-  ::memcpy(leds, zarchTerrainLut, sizeof(leds));
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const ZarchTerrainColumn &column = zarchTerrainColumns[y][x];
+    for (uint8_t z = 0; z <= column.height; ++z) {
+      const uint8_t green = 52 + z * 28 + column.greenJitter;
+      setVoxel(x, y, z, z == column.height ? CRGB(18, green + 34, 9) : CRGB(10, green, 4));
+    }
+  }
 
   const uint8_t skyPulse = sin8(millis() / 9);
   const uint8_t patrolStar = (millis() / 680U) % N;
@@ -1053,8 +1065,9 @@ void renderRunningLegs(float t) {
 
 void renderFairyBox(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  drawBoxFrame(CRGB(0, 110, 24));
-  // Three drifting fairy bodies with pulsing, asymmetric wings.
+  // The external mood LED now provides the enclosure glow, so the fairies
+  // receive every voxel of the physical cube rather than an internal frame.
+  // Three drifting fairy bodies carry pulsing, asymmetric wings.
   for (uint8_t fairy = 0; fairy < 3; ++fairy) {
     const int8_t x = wrapCoordinate(int(t * (2.2f + fairy * 0.4f)) + fairy * 2);
     const int8_t y = wrapCoordinate(int(t * (1.7f + fairy * 0.3f)) + fairy * 3);
@@ -1070,12 +1083,12 @@ void renderFairyBox(float t) {
 
 void renderAquarium(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  // Dim water volume behind a bright blue tank frame.
-  for (uint8_t z = 1; z < 4; ++z) for (uint8_t y = 1; y < 4; ++y) for (uint8_t x = 1; x < 4; ++x) {
+  // The external acrylic-edge LED is now the tank-frame glow. Fill the whole
+  // 5×5×5 matrix with water and reserve no cube voxels for a visual border.
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
     const uint8_t water = 18 + uint8_t((sinf(t * 2.0f + x + y + z) + 1.0f) * 13.0f);
     setVoxel(x, y, z, CHSV(151, 220, water));
   }
-  drawBoxFrame(CRGB(0, 70, 255));
   for (uint8_t fish = 0; fish < 2; ++fish) {
     const bool swimsRight = fish == 0;
     const int8_t x = wrapCoordinate(int(t * (2.5f + fish * 0.4f)) + fish * 3);
@@ -1419,6 +1432,40 @@ void renderCurrentPattern() {
   }
 }
 
+void renderMoodLight(float t) {
+  // LED 125 follows the cube's final DOUT and is intentionally assigned after
+  // every pattern. It therefore cannot consume a matrix voxel or be faded by a
+  // normal renderer.
+  CRGB mood = CRGB(4, 8, 10);
+  switch (currentPattern) {
+    case PATTERN_AQUARIUM:
+      mood = CHSV(151, 210, 78 + scale8(sin8(uint8_t(t * 28.0f)), 84));
+      break;
+    case PATTERN_FAIRY_BOX:
+      mood = CHSV(95, 235, 54 + scale8(sin8(uint8_t(t * 42.0f)), 110));
+      break;
+    case PATTERN_ZARCH:
+      mood = zarchImpactLife ? CRGB(255, 58, 8)
+        : (zarchBeat == ZARCH_RECOVERY ? CRGB(8, 80, 36) : CRGB(18, 126, 118));
+      break;
+    case PATTERN_STARGATE:
+      mood = CRGB(18, 40, 155);
+      break;
+    case PATTERN_BLACK_HOLE:
+      mood = CHSV(180, 200, 32 + scale8(sin8(uint8_t(t * 18.0f)), 72));
+      break;
+    case PATTERN_FIRE:
+    case PATTERN_INTENSE_FIRE:
+    case PATTERN_BLUE_FIRE:
+    case PATTERN_FIREWORKS:
+      mood = CRGB(130, 24, 3);
+      break;
+    default:
+      break;
+  }
+  leds[MOOD_LED_INDEX] = mood;
+}
+
 void advancePattern() {
   currentPattern = Pattern((currentPattern + 1) % PATTERN_COUNT);
   recordPatternRune(currentPattern);
@@ -1428,7 +1475,11 @@ void advancePattern() {
 }
 
 uint32_t activePatternDwellMs() {
-  return currentPattern == PATTERN_ZARCH ? max(cycleDurationMs, ZARCH_LONG_DWELL_MS) : cycleDurationMs;
+  if (currentPattern == PATTERN_ZARCH) return max(cycleDurationMs, ZARCH_LONG_DWELL_MS);
+  if (currentPattern == PATTERN_AQUARIUM || currentPattern == PATTERN_FAIRY_BOX) {
+    return max(cycleDurationMs, AMBIENT_LONG_DWELL_MS);
+  }
+  return cycleDurationMs;
 }
 
 // -----------------------------------------------------------------------------
@@ -1924,6 +1975,7 @@ void loop() {
   if (now - lastFrameAt >= frameIntervalMs()) {
     lastFrameAt = now;
     renderCurrentPattern();
+    renderMoodLight(effectTime());
     FastLED.show();
   }
 }

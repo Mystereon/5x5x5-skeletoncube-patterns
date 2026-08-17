@@ -84,7 +84,7 @@ tools/build_canonical_standalone_patterns.py # Rebuilds patterns/ 01–56
 
 The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: it contains a full single-file **Conway3DLife.ino** implementation with its own mapper, Life simulation, and GPIO4/GPIO8 controls. It can be copied to an Arduino sketchbook without any dependency on the master pattern library.
 
-[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32-C3 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **39 selectable CubeFX modes**. Zarch: Voxel Defender is a long-form self-playing miniature battle: a lime craft patrols a cached voxel landscape, staged red-lander waves arrive, support shots create misses and hits, orange impact clusters flash, and short recovery pauses reset the mood. It receives at least a two-minute automatic dwell, while manual selection can run indefinitely. Its 125-voxel terrain colour field is generated only when a scene is seeded and copied directly into the frame buffer thereafter. Lissajous Layer Ripple rests on layer 3 and makes restrained wave crests on layers 2 and 4, while Running Legs uses a hip–knee–ankle gait rather than angular alternating poses. Fixed 5×5×5 geometry—central radii, moon shading, Black Hole polar angles, explosion radii, and Stargate ring radii—is calculated once in `setup()` and reused during every frame, so heavy render loops avoid repeated square roots and polar-angle work.
+[`standalone/CubeFXWeb`](standalone/CubeFXWeb/) is a complete ESP32 Wi-Fi and BLE controller inspired by the fast, friendly control approach of [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). It starts as a local Wi-Fi access point, serves its own cube-aware web UI, displays a live isometric voxel preview, and exposes **39 selectable CubeFX modes**. The current enclosure profile targets the Waveshare ESP32-S3-Zero. It drives 126 LEDs over one data chain: **0–124 remain the 5×5×5 cube, while LED 125 is an independent acrylic-edge mood light**. Zarch: Voxel Defender is a long-form self-playing miniature battle: a lime craft patrols a compact cached terrain-column landscape, staged red-lander waves arrive, support shots create misses and hits, orange impact clusters flash, and short recovery pauses reset the mood. It receives at least a two-minute automatic dwell, while manual selection can run indefinitely. Lissajous Layer Ripple rests on layer 3 and makes restrained wave crests on layers 2 and 4, while Running Legs uses a hip–knee–ankle gait rather than angular alternating poses. Fixed 5×5×5 geometry—central radii, moon shading, Black Hole polar angles, explosion radii, and Stargate ring radii—is calculated once in `setup()` and reused during every frame, so heavy render loops avoid repeated square roots and polar-angle work.
 
 [`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube, 49–54 explore negative space, sci-fi, retro arcade, and puzzle-cube scenes, 55 is the restrained layer-3 Lissajous ripple, and 56 is Zarch: Voxel Defender.
 
@@ -96,15 +96,22 @@ This project is configured for the cube that inspired it.
 
 | Setting | Default | Change it here |
 |---|---:|---|
-| LEDs | 125 × WS2812B | `NUM_LEDS` is derived from `N = 5`. |
+| LEDs | 125 × WS2812B matrix + 1 external mood LED | `CUBEFX_MATRIX_LEDS` plus `CUBEFX_MOOD_LED_COUNT`. |
 | Colour order | GRB | `#define COLOR_ORDER GRB` |
-| Data pin | Arduino pin 2 | `#define DATA_PIN 2` |
+| ESP32-S3 Zero data pin | GPIO6 | `CUBEFX_LED_DATA_PIN` |
+| Primary / secondary buttons | GPIO2 / GPIO4 | `CUBEFX_PRIMARY_BUTTON_PIN` / `CUBEFX_SECONDARY_BUTTON_PIN` |
 | FastLED brightness | 100 | `BRIGHTNESS` |
 | Logical origin | Bottom–rear–left | Documented in the source header. |
 | Row order | Left → right | `SERPENTINE_ROWS = false` |
 | Frame delay | None | The project uses `millis()` timers instead. |
 
-CubeFXWeb has its own [`CubeFXConfig.h`](standalone/CubeFXWeb/CubeFXConfig.h) for the WS2812B data pin, both physical button pins, columns, rows, and layers. It computes `TOTAL_LEDS = columns × rows × layers` before an upload. The supplied visual renderer explicitly remains 5×5×5, so another dimension can be planned and calculated in the Android setup screen but must wait for the generic-volume renderer before it is flashed.
+CubeFXWeb has its own [`CubeFXConfig.h`](standalone/CubeFXWeb/CubeFXConfig.h) for the WS2812B data pin, both physical button pins, columns, rows, layers, and the independent enclosure mood LED. The renderer deliberately keeps matrix operations at 125 voxels and writes the mood colour only to output index 125 after every scene. Connect the last cube LED’s **DOUT** to the external LED’s **DIN**; do not run it in parallel. Fish Tank and Fairies now use every matrix voxel, while the acrylic-edge LED supplies their blue-water and green-fairy ambient glow. The supplied visual renderer explicitly remains 5×5×5, so another dimension can be planned and calculated in the Android setup screen but must wait for the generic-volume renderer before it is flashed.
+
+### Recommended ESP32-S3 Zero profile
+
+The Waveshare ESP32-S3-Zero uses an ESP32-S3FH4R2 with **4 MB flash, 2 MB PSRAM, and 512 KB internal SRAM**. Select **ESP32S3 Dev Module**, **4 MB flash**, **Huge APP (3 MB No OTA / 1 MB SPIFFS)**, and **QSPI PSRAM** in Arduino IDE. The enclosure mapping is GPIO6 data, GPIO2 primary button, and GPIO4 secondary button. The present 126-output build compiles to **1,314,075 bytes flash (41% of the 3 MB app slot)** and **53,728 bytes static RAM (16% of the reported internal-RAM allocation)**. It retains more than 1.8 MB of application flash for future pattern code.
+
+The 2 MB PSRAM is available for future slow-changing cinematic scripts, diagnostics, or optional replay buffers. Keep the FastLED output buffer, active lookup tables, and timing-sensitive data in internal RAM; full PSRAM guidance is in [`ESP32_S3_MEMORY_NOTES.md`](standalone/CubeFXWeb/ESP32_S3_MEMORY_NOTES.md). [5]
 
 ### Recommended ESP32-C3 partition profile
 

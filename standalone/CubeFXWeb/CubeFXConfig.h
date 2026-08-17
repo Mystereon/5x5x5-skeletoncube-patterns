@@ -8,17 +8,18 @@
   always requires recompiling and flashing this sketch. Button pins can also
   be changed from the Android controller after this initial upload.
 
-  ESP32-C3 safety notes:
-  - GPIO2, GPIO8, and GPIO9 are boot strapping pins; only use them when the
-    associated switch is released at boot. GPIO8 is kept as the project
-    default because it matches Dad's existing SuperMini wiring.
-  - GPIO12–GPIO17 are reserved for SPI flash on typical ESP32-C3 boards.
-  - GPIO18–GPIO19 disable USB-JTAG if repurposed.
+  ESP32-S3 Zero enclosure profile:
+  - GPIO6 is the single WS2812B data chain: 125 skeletal-cube LEDs followed
+    by one external acrylic-edge mood LED.
+  - GPIO2 is the primary button and GPIO4 is the secondary button. Both
+    normally-open switches connect to GND and use INPUT_PULLUP.
+  - GPIO0 remains BOOT, GPIO21 is the onboard RGB LED, GPIO33–37 belong to
+    PSRAM, and GPIO43/44 are UART0. Leave those pins alone.
 */
 
-#define CUBEFX_LED_DATA_PIN 2
-#define CUBEFX_PRIMARY_BUTTON_PIN 4
-#define CUBEFX_SECONDARY_BUTTON_PIN 8
+#define CUBEFX_LED_DATA_PIN 6
+#define CUBEFX_PRIMARY_BUTTON_PIN 2
+#define CUBEFX_SECONDARY_BUTTON_PIN 4
 
 // Physical dimensions. The reported LED total is always the product below.
 // CubeFXWeb's current visual effects are authored for a 5×5×5 skeletal cube;
@@ -26,4 +27,6 @@
 #define CUBEFX_COLUMNS 5
 #define CUBEFX_ROWS 5
 #define CUBEFX_LAYERS 5
-#define CUBEFX_TOTAL_LEDS (CUBEFX_COLUMNS * CUBEFX_ROWS * CUBEFX_LAYERS)
+#define CUBEFX_MATRIX_LEDS (CUBEFX_COLUMNS * CUBEFX_ROWS * CUBEFX_LAYERS)
+#define CUBEFX_MOOD_LED_COUNT 1
+#define CUBEFX_TOTAL_LEDS (CUBEFX_MATRIX_LEDS + CUBEFX_MOOD_LED_COUNT)

@@ -2,6 +2,14 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.6 — ESP32-S3 Zero enclosure profile and mood light
+
+CubeFXWeb now targets the Waveshare **ESP32-S3-Zero** enclosure profile: **GPIO6** is WS2812B data, **GPIO2** is the primary button, and **GPIO4** is the secondary button. The serial LED chain now contains **126 outputs**. Indices 0–124 remain the 5×5×5 matrix, while index 125 is an independent external NeoPixel for acrylic-edge mood lighting.
+
+Fish Tank and Fairies now use all 125 cube voxels; their former internal visual frames have moved into the enclosure as water-blue and green ambient light. Zarch responds with alert/recovery mood beats, while Stargate, Black Hole, and the fire-family scenes each receive a matching external colour. Fish Tank and Fairies hold the automatic cycle for at least **90 seconds**; Zarch keeps its two-minute cinematic minimum.
+
+Zarch’s fixed terrain cache was reduced from a 125-element `CRGB` frame (**375 bytes**) to a 25-column terrain description (**50 bytes**), saving **325 bytes** of global RAM. Its terrain colour is reconstructed with compact integer arithmetic during the render, while the fixed geometric LUTs remain setup-time values. Compiled with **ESP32S3 Dev Module**, **Huge APP (3 MB No OTA / 1 MB SPIFFS)**, and **QSPI PSRAM**, CubeFXWeb measures **1,314,075 bytes / 41% flash** and **53,728 bytes / 16% global RAM**.
+
 ## v0.6.5 — Long-form self-playing Zarch
 
 Pattern 56 / CubeFXWeb mode 39 has grown into a cinematic self-playing Zarch scene. It now moves through a patrol, initial contact, crossfire, finale, and recovery sequence; the lime craft patrols and aligns itself with active landers, autonomous shots deliberately include atmospheric misses, attacks create short orange impact clusters, and a recovery pause returns the scene to calm cyan navigation lights.
