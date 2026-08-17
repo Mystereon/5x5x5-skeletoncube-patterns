@@ -88,7 +88,7 @@ The [`standalone/Conway3DLife`](standalone/Conway3DLife/) folder is different: i
 
 [`standalone/CubeFXPatternDemos`](standalone/CubeFXPatternDemos/) remains as an alternate CubeFX source collection. The non-duplicated official effect catalog is [`patterns/`](patterns/): 01–28 are the original effects, 29–39 are the initial CubeFX-only additions, 40–45 add high-impact scenes, 46–48 add Voxel Minesweeper, Big Moon & Stars, and Nixie Tube, 49–54 explore negative space, sci-fi, retro arcade, and puzzle-cube scenes, 55 is the restrained layer-3 Lissajous ripple, and 56 is Zarch: Voxel Defender.
 
-The native Kotlin/Jetpack Compose source for the Android phone controller and the Galaxy Watch8 Classic companion is in [`apps/`](apps/). The phone app offers the 56-pattern browser, live engine/Banner controls, an ESP32 wiring-and-dimensions setup screen, and a Watch route. The Watch app targets the rotating bezel as its primary pattern selector and includes Zarch in its embedded-mode list. Build and installation notes are in [`apps/README.md`](apps/README.md).
+The native Kotlin/Jetpack Compose source for the Android phone controller and the Galaxy Watch8 Classic companion is in [`apps/`](apps/). The phone app offers the 56-pattern browser plus controller-specific **Ring Bouncer** (BLE ID 57), live engine/Banner controls, an ESP32 wiring-and-dimensions setup screen, and a Watch route. The Watch app targets the rotating bezel as its primary pattern selector and includes Zarch in its embedded-mode list. Build and installation notes are in [`apps/README.md`](apps/README.md).
 
 ## Hardware assumptions
 

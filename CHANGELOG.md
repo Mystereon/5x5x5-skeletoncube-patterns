@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.1 — Android Ring Bouncer controller alignment
+
+The native Android **CubeFXPhone** catalog now exposes controller-specific BLE pattern ID **57**, Ring Bouncer, alongside the existing 56 canonical patterns. Its pattern screen explains that short **GPIO2** changes the rear-ring colour and short **GPIO4** changes the bouncing-voxel colour. The Android firmware page now documents the ESP32-S3 Zero profile: GPIO6 data, GPIO2/GPIO4 buttons, 125 matrix LEDs plus the 12-pixel rear ring, 40 embedded modes, and the Huge APP no-OTA setup.
+
+The updated native phone app assembled successfully as a debug APK with Android SDK tooling, confirming the Kotlin catalog and controller UI compile against the revised BLE protocol.
+
 ## v0.7.0 — Ring Bouncer interactive enclosure mode
 
 CubeFXWeb now has **40 selectable modes**. The new controller-specific **Ring Bouncer** leaves the entire 5×5×5 matrix free for one voxel that ricochets on all three axes. Its 12-pixel rear ring is a solid selected colour at a local **200 / 255** cap before CubeFX’s global brightness limiter.
