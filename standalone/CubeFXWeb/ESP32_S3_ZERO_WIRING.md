@@ -10,8 +10,8 @@ This guidance applies to the compact **Waveshare ESP32-S3-Zero** board, includin
 |---|---:|---|---|
 | WS2812B cube DIN | **GPIO6** | GPIO6 → 330–470 Ω series resistor → level shifter → cube DIN | A normal bidirectional GPIO, clear of S3 boot strapping, USB/JTAG, onboard RGB, UART labels, and S3-Zero PSRAM wiring. This is the cleanest route for the user’s finished enclosure. |
 | 12-pixel rear mood ring | Cube LED 124 DOUT | Cube LED 124 DOUT → ring DIN; leave the ring DOUT open unless another controlled output is deliberately added later | The ring is **after** the 125-voxel cube in the same serial chain, at output indices 125–136. It is not a parallel branch. |
-| Button 1 / primary | **GPIO2** | Momentary switch from GPIO2 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-primary, long press opens Banner mode. |
-| Button 2 / secondary | **GPIO4** | Momentary switch from GPIO4 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-secondary, long press advances to the next pattern and enters manual mode. |
+| Button 1 / primary | **GPIO2** | Momentary switch from GPIO2 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-primary, long press opens Banner mode. In Ring Bouncer, it advances the rear-ring colour. |
+| Button 2 / secondary | **GPIO4** | Momentary switch from GPIO4 to GND | Normal GPIO using CubeFX's `INPUT_PULLUP`; short press is pattern-secondary, long press advances to the next pattern and enters manual mode. In Ring Bouncer, it advances the bouncing voxel colour. |
 | Cube ground | **GND** | Connect to the cube power supply ground | Required common reference for the data signal. |
 
 Use a **74AHCT125**, **74HCT245**, or similar 5 V-tolerant logic level shifter between GPIO6 and a 5 V WS2812B cube. Do not power the 125-LED cube plus 12-pixel ring from the S3-Zero board: Waveshare rates its onboard regulator at 800 mA, whereas the enclosure needs its own properly sized 5 V supply. [1]

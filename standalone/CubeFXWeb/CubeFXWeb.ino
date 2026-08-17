@@ -204,6 +204,7 @@ enum Pattern : uint8_t {
   PATTERN_RUBIKS_CUBE,
   PATTERN_LISSAJOUS_RIPPLE,
   PATTERN_ZARCH,
+  PATTERN_RING_BOUNCER,
   PATTERN_COUNT
 };
 
@@ -215,7 +216,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -541,6 +542,45 @@ void renderZarch(float t) {
     addVoxel(zarchImpactX, zarchImpactY - 1, 3, CRGB(value / 2, value / 7, 0));
     addVoxel(zarchImpactX, zarchImpactY + 1, 3, CRGB(value / 2, value / 7, 0));
   }
+}
+
+// Ring Bouncer ---------------------------------------------------------------
+// A deliberately simple interactive mode: one voxel owns the whole 5x5x5
+// volume and the rear ring owns the enclosure frame. Short primary steps ring
+// colour; short secondary steps the bouncer colour.
+int8_t ringBouncerX = 2, ringBouncerY = 2, ringBouncerZ = 2;
+int8_t ringBouncerDX = 1, ringBouncerDY = -1, ringBouncerDZ = 1;
+uint8_t ringBouncerHue = 156;
+uint8_t voxelBouncerHue = 8;
+uint32_t ringBouncerMovedAt = 0;
+constexpr uint8_t RING_BOUNCER_RING_BRIGHTNESS = 200;
+
+void resetRingBouncer() {
+  ringBouncerX = ringBouncerY = ringBouncerZ = 2;
+  ringBouncerDX = 1; ringBouncerDY = -1; ringBouncerDZ = 1;
+  ringBouncerMovedAt = millis();
+}
+
+void stepRingBouncerAxis(int8_t &position, int8_t &delta) {
+  int8_t next = position + delta;
+  if (next < 0 || next >= N) {
+    delta = -delta;
+    next = position + delta;
+  }
+  position = next;
+}
+
+void renderRingBouncer() {
+  const uint32_t now = millis();
+  const uint16_t moveIntervalMs = 320U - (uint16_t(speedControl) * 230U / 255U);
+  if (now - ringBouncerMovedAt >= moveIntervalMs) {
+    ringBouncerMovedAt = now;
+    stepRingBouncerAxis(ringBouncerX, ringBouncerDX);
+    stepRingBouncerAxis(ringBouncerY, ringBouncerDY);
+    stepRingBouncerAxis(ringBouncerZ, ringBouncerDZ);
+  }
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  setVoxel(ringBouncerX, ringBouncerY, ringBouncerZ, CHSV(voxelBouncerHue, 255, 255));
 }
 
 void renderFire(float t) {
@@ -1462,6 +1502,7 @@ void renderCurrentPattern() {
     case PATTERN_RUBIKS_CUBE: renderRubiksCube(t); break;
     case PATTERN_LISSAJOUS_RIPPLE: renderLissajousRipple(t); break;
     case PATTERN_ZARCH: renderZarch(t); break;
+    case PATTERN_RING_BOUNCER: renderRingBouncer(); break;
     default: break;
   }
 }
@@ -1548,6 +1589,9 @@ void renderMoodRing(float t) {
       case PATTERN_PUZZLE_CUBE:
         mood = CHSV(0, 120, 38 + scale8(wave, 95));
         break;
+      case PATTERN_RING_BOUNCER:
+        mood = CHSV(ringBouncerHue, 255, 255);
+        break;
       case PATTERN_ZARCH:
         mood = zarchImpactLife
           ? CHSV(12 + scale8(wave, 16), 250, 210 + scale8(wave, 45))
@@ -1573,7 +1617,9 @@ void renderMoodRing(float t) {
         mood = CHSV(145, 140, 25 + scale8(wave, 35));
         break;
     }
-    mood.nscale8_video(MOOD_RING_BRIGHTNESS);
+    const uint8_t localRingBrightness = currentPattern == PATTERN_RING_BOUNCER
+      ? RING_BOUNCER_RING_BRIGHTNESS : MOOD_RING_BRIGHTNESS;
+    mood.nscale8_video(localRingBrightness);
     leds[MOOD_RING_START + ringPixel] = mood;
   }
 }
@@ -1582,6 +1628,7 @@ void advancePattern() {
   currentPattern = Pattern((currentPattern + 1) % PATTERN_COUNT);
   recordPatternRune(currentPattern);
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
+  if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
   patternStartedAt = millis();
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 }
@@ -1595,7 +1642,7 @@ uint32_t activePatternDwellMs() {
 }
 
 // -----------------------------------------------------------------------------
-// Optional hardware buttons: GPIO4 pattern-primary/banner; GPIO8
+// Optional hardware buttons: GPIO2 pattern-primary/banner; GPIO4
 // pattern-secondary/next. Long presses are global; short presses are local.
 // -----------------------------------------------------------------------------
 uint8_t primaryButtonPin = CUBEFX_PRIMARY_BUTTON_PIN;
@@ -1690,6 +1737,10 @@ void runShortPatternAction(bool primary) {
     case PATTERN_ZARCH:
       if (primary) resetZarchScene();
       else fireZarchShot();
+      break;
+    case PATTERN_RING_BOUNCER:
+      if (primary) ringBouncerHue += 32;
+      else voxelBouncerHue += 32;
       break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
@@ -1794,6 +1845,7 @@ void handleControl() {
     if (value >= 0 && value < PATTERN_COUNT) {
       currentPattern = Pattern(value);
       if (currentPattern == PATTERN_ZARCH) resetZarchScene();
+      if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
       recordPatternRune(currentPattern);
       autoCycle = false;
       patternStartedAt = millis();
@@ -1879,9 +1931,8 @@ bool saveButtonPins(int primary, int secondary) {
 }
 
 bool selectCanonicalPattern(int canonicalId) {
-  // The mobile app catalog is the 48-pattern standalone catalogue. CubeFXWeb
-  // currently embeds the 31 effects mapped here; other canonical demos remain
-  // individually uploadable from patterns/ and are intentionally rejected.
+  // The mobile catalog exposes the canonical standalone library. CubeFXWeb
+  // embeds the mapped effects below plus this controller-specific Ring Bouncer.
   switch (canonicalId) {
     case 1: currentPattern = PATTERN_VECTOR_CUBE; break;
     case 9: currentPattern = PATTERN_MATRIX_RAIN; break;
@@ -1922,9 +1973,11 @@ bool selectCanonicalPattern(int canonicalId) {
     case 54: currentPattern = PATTERN_RUBIKS_CUBE; break;
     case 55: currentPattern = PATTERN_LISSAJOUS_RIPPLE; break;
     case 56: currentPattern = PATTERN_ZARCH; break;
+    case 57: currentPattern = PATTERN_RING_BOUNCER; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
+  if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
   autoCycle = false;
   recordPatternRune(currentPattern);
   patternStartedAt = millis();

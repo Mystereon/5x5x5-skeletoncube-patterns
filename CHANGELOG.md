@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.0 — Ring Bouncer interactive enclosure mode
+
+CubeFXWeb now has **40 selectable modes**. The new controller-specific **Ring Bouncer** leaves the entire 5×5×5 matrix free for one voxel that ricochets on all three axes. Its 12-pixel rear ring is a solid selected colour at a local **200 / 255** cap before CubeFX’s global brightness limiter.
+
+Short **GPIO2** presses step the rear-ring hue; short **GPIO4** presses step the bouncing voxel hue. The long-press actions are unchanged: GPIO2 opens Banner mode and GPIO4 advances to the next pattern. The browser selector presents the new mode, while BLE canonical ID **57** selects it for controllers that expose controller-specific modes. The ESP32-S3 Huge APP build measured **1,315,939 bytes / 41% flash** and **53,784 bytes / 16% global RAM**.
+
 ## v0.6.9 — Reactive rear ring and hidden ring scenes
 
 The 12-pixel rear ring is now a **second reactive visual plane** across the CubeFX gallery. Matrix rain has moving heads, plasma and shape scenes use rainbow flow, arcade scenes use a bright tracer, Life and landscape scenes breathe, and impact scenes carry a stronger orange alert. Fish Tank and Fairies remain deliberately frameless inside the cube: the acrylic enclosure and its ring now provide their visible frame.
