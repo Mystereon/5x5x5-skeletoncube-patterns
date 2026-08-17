@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.6.7 — Standalone Zarch terrain-cache synchronisation
+
+The source sketch in `standalone/CubeFXPatternDemos/ZarchVoxelDefender` and its generated canonical counterpart in `patterns/56_ZarchVoxelDefender` now match CubeFXWeb’s compact terrain representation. The 125-voxel `CRGB` terrain frame has been replaced with 25 `{ height, tint }` terrain columns, reducing fixed terrain storage from **375 bytes to 50 bytes** while retaining the same seeded low-poly terrain appearance.
+
+Pattern 56’s standalone README now correctly specifies its ESP32-S3 Zero defaults: **GPIO6** LED data, **GPIO2** primary reset button, and **GPIO4** secondary support-shot button. The canonical direct-upload sketch was compiled successfully with the ESP32-S3 Huge APP profile at **422,323 bytes / 13% flash** and **27,948 bytes / 8% global RAM**.
+
 ## v0.6.6 — ESP32-S3 Zero enclosure profile and mood light
 
 CubeFXWeb now targets the Waveshare **ESP32-S3-Zero** enclosure profile: **GPIO6** is WS2812B data, **GPIO2** is the primary button, and **GPIO4** is the secondary button. The serial LED chain now contains **126 outputs**. Indices 0–124 remain the 5×5×5 matrix, while index 125 is an independent external NeoPixel for acrylic-edge mood lighting.

@@ -184,6 +184,11 @@ for folder, label, source_name, description in CUBEFX_UNIQUE:
     text = source.read_text(encoding='utf-8')
     text = text.replace(f'{source_name}.ino — fully standalone', f'{folder}.ino — fully standalone', 1)
     (destination / f'{folder}.ino').write_text(text, encoding='utf-8')
+    upload_text = (f'Open `{folder}.ino` in Arduino IDE and upload it. Defaults: ESP32-S3 Zero with '
+                   '125 GRB WS2812B LEDs on GPIO6, primary button GPIO2, secondary button GPIO4, '
+                   'brightness 100, bottom–rear–left origin, and `index = z * 25 + y * 5 + x`.') if source_name == 'ZarchVoxelDefender' else (f'Open `{folder}.ino` in Arduino IDE and upload to the ESP32-C3. Defaults: 125 GRB\n'
+                   'WS2812B LEDs on data pin 2, brightness 100, bottom–rear–left origin, and\n'
+                   '`index = z * 25 + y * 5 + x`.')
     readme = f'''# {folder} — {label}
 
 {description}
@@ -194,9 +199,7 @@ There is no browser-controller, master-sketch, or local-header dependency.
 
 ## Upload
 
-Open `{folder}.ino` in Arduino IDE and upload to the ESP32-C3. Defaults: 125 GRB
-WS2812B LEDs on data pin 2, brightness 100, bottom–rear–left origin, and
-`index = z * 25 + y * 5 + x`.
+{upload_text}
 '''
     (destination / 'README.md').write_text(readme, encoding='utf-8')
 

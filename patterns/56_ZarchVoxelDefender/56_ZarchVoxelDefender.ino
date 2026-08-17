@@ -15,7 +15,9 @@
 constexpr uint8_t N = 5, DATA_PIN = 6, PRIMARY_BUTTON_PIN = 2, SECONDARY_BUTTON_PIN = 4;
 constexpr uint16_t NUM_LEDS = N * N * N;
 constexpr uint8_t ENEMIES = 2;
-CRGB leds[NUM_LEDS], terrainLut[NUM_LEDS];
+CRGB leds[NUM_LEDS];
+struct TerrainColumn { uint8_t height; uint8_t tint; };
+TerrainColumn terrainColumns[N][N];
 uint16_t idx(uint8_t x, uint8_t y, uint8_t z) { return uint16_t(z) * 25 + uint16_t(y) * 5 + x; }
 void voxel(int8_t x, int8_t y, int8_t z, const CRGB &c) { if (x >= 0 && x < N && y >= 0 && y < N && z >= 0 && z < N) leds[idx(x, y, z)] = c; }
 void addVoxel(int8_t x, int8_t y, int8_t z, const CRGB &c) { if (x >= 0 && x < N && y >= 0 && y < N && z >= 0 && z < N) leds[idx(x, y, z)] += c; }
@@ -28,13 +30,19 @@ uint8_t impactLife = 0;
 uint8_t beat = PATROL;
 uint32_t beatAt, craftAt, enemyAt, shotAt, autoShotAt;
 
-void buildTerrainLut() {
-  fill_solid(terrainLut, NUM_LEDS, CRGB::Black);
+void buildTerrainColumns() {
   for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
     uint8_t height = random8() < 48 ? 1 : 0; if (random8() < 18) height = 2;
-    for (uint8_t z = 0; z <= height; ++z) {
-      const uint8_t green = 52 + z * 28 + random8(22);
-      terrainLut[idx(x, y, z)] = z == height ? CRGB(18, green + 34, 9) : CRGB(10, green, 4);
+    terrainColumns[y][x] = {height, random8(22)};
+  }
+}
+void renderTerrain() {
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const TerrainColumn &column = terrainColumns[y][x];
+    for (uint8_t z = 0; z <= column.height; ++z) {
+      const uint8_t green = 52 + z * 28 + column.tint;
+      leds[idx(x, y, z)] = z == column.height ? CRGB(18, green + 34, 9) : CRGB(10, green, 4);
     }
   }
 }
@@ -46,7 +54,7 @@ void enterBeat(uint8_t next) {
   else if (next == CROSSFIRE) { setEnemy(0, 0, 4, true); setEnemy(1, 4, 4, true); }
   else { setEnemy(0, 2, 4, true); setEnemy(1, 4, 3, true); }
 }
-void resetScene() { buildTerrainLut(); craftX = 2; impactLife = 0; craftAt = enemyAt = shotAt = autoShotAt = millis(); enterBeat(PATROL); }
+void resetScene() { buildTerrainColumns(); craftX = 2; impactLife = 0; craftAt = enemyAt = shotAt = autoShotAt = millis(); enterBeat(PATROL); }
 void fireShot() { if (!shotActive) { shotActive = true; shotX = craftX; shotY = 1; } }
 int8_t leadEnemy() { for (uint8_t i = 0; i < ENEMIES; ++i) if (enemyAlive[i]) return i; return -1; }
 void nextBeat() { if (beat == PATROL) enterBeat(CONTACT); else if (beat == CONTACT) enterBeat(CROSSFIRE); else if (beat == CROSSFIRE) enterBeat(FINALE); else if (beat == FINALE) enterBeat(RECOVERY); else resetScene(); }
@@ -73,7 +81,7 @@ void updateScene() {
 }
 
 void renderScene() {
-  ::memcpy(leds, terrainLut, sizeof(leds));
+  renderTerrain();
   const uint8_t pulse = sin8(millis() / 9); addVoxel((millis() / 680U) % N, 4, 4, CRGB(0, pulse / 7, pulse / 5));
   if (beat == RECOVERY) addVoxel(2, 4, 4, CRGB(0, 40 + pulse / 4, 35 + pulse / 3));
   voxel(craftX, 1, 4, CRGB(110, 255, 40)); voxel(craftX - 1, 0, 3, CRGB(0, 105, 105)); voxel(craftX + 1, 0, 3, CRGB(0, 105, 105)); voxel(craftX, 0, 3, CRGB(180, 255, 80));
