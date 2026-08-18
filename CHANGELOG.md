@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.3 — Help Me Obi-Wan Hologram
+
+CubeFXWeb mode **41** is a compact blue hologram projection. A perimeter projector base and sparse upward light cone frame a small cyan humanoid silhouette with head, shoulders, outstretched arms, torso, and widening skirt. A moving scanline brightens one layer at a time while deterministic tiny dropouts make the transmission shimmer rather than look like solid sculpture.
+
+The 12-pixel rear ring now behaves as its projector: cyan-blue illumination circles the enclosure with a blue-white head and occasional brief transmission dropout. The browser selector lists the scene, BLE pattern ID **58** selects it, and the native Android CubeFXPhone catalog has been updated and built successfully with the new entry. The verified ESP32-S3 Huge APP build measures **1,317,231 bytes / 41% flash** and **53,784 bytes / 16% global RAM**.
+
 ## v0.7.2 — Wild full-volume Ring Bouncer
 
 Ring Bouncer no longer follows a fixed three-axis diagonal between two opposite corners. At each wall impact—and after a short run of moves—it chooses a fresh, safe heading with any combination of X, Y, and Z travel. The voxel therefore explores lines, planes, and diagonals across the full 5×5×5 volume while never pointing through a wall.

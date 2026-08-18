@@ -205,6 +205,7 @@ enum Pattern : uint8_t {
   PATTERN_LISSAJOUS_RIPPLE,
   PATTERN_ZARCH,
   PATTERN_RING_BOUNCER,
+  PATTERN_HOLOGRAM,
   PATTERN_COUNT
 };
 
@@ -216,7 +217,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -611,6 +612,53 @@ void renderRingBouncer() {
   }
   fill_solid(leds, MATRIX_LEDS, CRGB::Black);
   setVoxel(ringBouncerX, ringBouncerY, ringBouncerZ, CHSV(voxelBouncerHue, 255, 255));
+}
+
+// Help Me Obi-Wan Hologram ---------------------------------------------------
+// A deliberately sparse 5x5x5 figure: base projector, light cone, head,
+// shoulders, arms, torso, and skirt. Small deterministic gaps make it feel
+// like a broken transmission rather than a solid cyan sculpture.
+void setHologramVoxel(int8_t x, int8_t y, int8_t z, uint8_t value, uint8_t scanLayer, uint32_t beat) {
+  if (((beat + x * 11 + y * 17 + z * 23) % 13) == 0) return;
+  if (z == scanLayer) value = qadd8(value, 55);
+  setVoxel(x, y, z, CHSV(146 + ((x + z) & 1) * 5, 185, value));
+}
+
+void renderHologram(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint32_t beat = millis() / 62U;
+  const uint8_t scanLayer = (millis() / 135U) % N;
+  const uint8_t basePulse = 75 + sin8(uint8_t(t * 58.0f)) / 2;
+
+  // Projector base: a bright blue perimeter at floor level.
+  for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    if (x == 0 || x == N - 1 || y == 0 || y == N - 1) {
+      setVoxel(x, y, 0, CHSV(151, 220, basePulse));
+    }
+  }
+
+  // Sparse light cone rising from the projector beneath the figure.
+  for (uint8_t z = 1; z < N; ++z) {
+    const int8_t span = z < 3 ? 2 : 1;
+    const uint8_t coneValue = 20 + (N - z) * 13;
+    for (int8_t y = 2 - span; y <= 2 + span; ++y) for (int8_t x = 2 - span; x <= 2 + span; ++x) {
+      if (((x + y + z + beat) & 3) == 0) setVoxel(x, y, z, CHSV(150, 180, coneValue));
+    }
+  }
+
+  // Humanoid messenger, standing centrally inside the cone.
+  setHologramVoxel(2, 2, 4, 205, scanLayer, beat);                         // head
+  setHologramVoxel(2, 2, 3, 175, scanLayer, beat);                         // neck
+  setHologramVoxel(1, 2, 3, 168, scanLayer, beat);                         // shoulders
+  setHologramVoxel(3, 2, 3, 168, scanLayer, beat);
+  setHologramVoxel(0, 2, 3, 130, scanLayer, beat);                         // reaching arms
+  setHologramVoxel(4, 2, 3, 130, scanLayer, beat);
+  setHologramVoxel(1, 2, 2, 152, scanLayer, beat);                         // torso
+  setHologramVoxel(2, 2, 2, 195, scanLayer, beat);
+  setHologramVoxel(3, 2, 2, 152, scanLayer, beat);
+  setHologramVoxel(1, 2, 1, 122, scanLayer, beat);                         // widening skirt
+  setHologramVoxel(2, 2, 1, 165, scanLayer, beat);
+  setHologramVoxel(3, 2, 1, 122, scanLayer, beat);
 }
 
 void renderFire(float t) {
@@ -1533,6 +1581,7 @@ void renderCurrentPattern() {
     case PATTERN_LISSAJOUS_RIPPLE: renderLissajousRipple(t); break;
     case PATTERN_ZARCH: renderZarch(t); break;
     case PATTERN_RING_BOUNCER: renderRingBouncer(); break;
+    case PATTERN_HOLOGRAM: renderHologram(t); break;
     default: break;
   }
 }
@@ -1622,6 +1671,15 @@ void renderMoodRing(float t) {
       case PATTERN_RING_BOUNCER:
         mood = CHSV(ringBouncerHue, 255, 255);
         break;
+      case PATTERN_HOLOGRAM: {
+        // A cyan projector glow walks around the acrylic rear ring, with a
+        // restrained white-blue head and occasional transmission dropout.
+        const uint8_t projector = (uint8_t(t * 13.0f) + ringPixel) % MOOD_RING_LEDS;
+        if ((uint8_t(t * 10.0f) + ringPixel * 5) % 19 == 0) mood = CRGB::Black;
+        else if (projector < 2) mood = CRGB(145, 225, 255);
+        else mood = CHSV(148 + scale8(wave, 12), 190, 90 + scale8(wave, 120));
+        break;
+      }
       case PATTERN_ZARCH:
         mood = zarchImpactLife
           ? CHSV(12 + scale8(wave, 16), 250, 210 + scale8(wave, 45))
@@ -2004,6 +2062,7 @@ bool selectCanonicalPattern(int canonicalId) {
     case 55: currentPattern = PATTERN_LISSAJOUS_RIPPLE; break;
     case 56: currentPattern = PATTERN_ZARCH; break;
     case 57: currentPattern = PATTERN_RING_BOUNCER; break;
+    case 58: currentPattern = PATTERN_HOLOGRAM; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();

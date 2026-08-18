@@ -124,8 +124,8 @@ private fun LivePage(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit) {
 @Composable
 private fun PatternPage(cubeFx: CubeFxBleClient) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("57 PATTERNS", color = TextMain, fontWeight = FontWeight.Black, fontSize = 22.sp)
-        Text("Tap an EMBEDDED mode to send it to CubeFXWeb. Ring Bouncer is controller mode 57: short GPIO2 changes ring colour and short GPIO4 changes bouncing-voxel colour. UPLOAD DEMO effects remain direct-upload sketches in the public library.", color = Muted, fontSize = 13.sp)
+        Text("58 PATTERNS", color = TextMain, fontWeight = FontWeight.Black, fontSize = 22.sp)
+        Text("Tap an EMBEDDED mode to send it to CubeFXWeb. Ring Bouncer is controller mode 57: short GPIO2 changes ring colour and short GPIO4 changes bouncing-voxel colour. Help Me Obi-Wan Hologram is controller mode 58. UPLOAD DEMO effects remain direct-upload sketches in the public library.", color = Muted, fontSize = 13.sp)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             items(CubeFxPatternCatalog.all, key = { it.id }) { pattern ->
                 Row(
@@ -146,7 +146,7 @@ private fun FirmwarePage() {
     val context = LocalContext.current
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("CUBEFX FIRMWARE", color = TextMain, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        NoticeCard("CUBEFXWEB", "Download the current ESP32-S3 Zero Wi-Fi + BLE firmware sketch. It includes 40 embedded CubeFX modes, a 125-voxel cube plus 12-pixel rear ring, configurable button pins, and the recommended Huge APP no-OTA profile.")
+        NoticeCard("CUBEFXWEB", "Download the current ESP32-S3 Zero Wi-Fi + BLE firmware sketch. It includes 41 embedded CubeFX modes, a 125-voxel cube plus 12-pixel rear ring, configurable button pins, and the recommended Huge APP no-OTA profile.")
         ActionButton("OPEN CUBEFXWEB FIRMWARE", Lime) {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mystereon/5x5x5-skeletoncube-patterns/tree/main/standalone/CubeFXWeb")))
         }
@@ -154,7 +154,7 @@ private fun FirmwarePage() {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mystereon/5x5x5-skeletoncube-patterns/releases/latest")))
         }
         Text("Flash checklist: 1) download the repository or release source; 2) open CubeFXWeb.ino in Arduino IDE with the whole CubeFXWeb folder intact; 3) install FastLED and select ESP32S3 Dev Module, 4 MB flash, Huge APP, and QSPI PSRAM; 4) use GPIO6 data, GPIO2 primary, and GPIO4 secondary; 5) edit CubeFXConfig.h only when changing physical wiring; 6) upload by USB, then pair this controller with CubeFX-5x5x5.", color = Muted, fontSize = 14.sp)
-        Text("Ring Bouncer uses BLE pattern ID 57. Its short GPIO2 press changes the rear-ring colour, while short GPIO4 changes the bouncing voxel colour; long presses keep their Banner and Next Pattern actions. The app can save button-pin choices over BLE, but LED data-pin and cube-dimension changes require editing CubeFXConfig.h and reflashing.", color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("Ring Bouncer uses BLE pattern ID 57. Its short GPIO2 press changes the rear-ring colour, while short GPIO4 changes the bouncing voxel colour; long presses keep their Banner and Next Pattern actions. Help Me Obi-Wan Hologram is BLE pattern ID 58 and uses the blue projector scene plus rear-ring glow. The app can save button-pin choices over BLE, but LED data-pin and cube-dimension changes require editing CubeFXConfig.h and reflashing.", color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
