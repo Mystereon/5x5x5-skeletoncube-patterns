@@ -545,29 +545,55 @@ void renderZarch(float t) {
 }
 
 // Ring Bouncer ---------------------------------------------------------------
-// A deliberately simple interactive mode: one voxel owns the whole 5x5x5
-// volume and the rear ring owns the enclosure frame. Short primary steps ring
-// colour; short secondary steps the bouncer colour.
+// One voxel boings through the whole 5x5x5 volume while the rear ring owns the
+// enclosure frame. It picks a fresh safe 3-D heading at wall impacts and at
+// short intervals, avoiding the predictable corner-to-corner diagonal.
 int8_t ringBouncerX = 2, ringBouncerY = 2, ringBouncerZ = 2;
-int8_t ringBouncerDX = 1, ringBouncerDY = -1, ringBouncerDZ = 1;
+int8_t ringBouncerDX = 1, ringBouncerDY = -1, ringBouncerDZ = 0;
 uint8_t ringBouncerHue = 156;
 uint8_t voxelBouncerHue = 8;
 uint32_t ringBouncerMovedAt = 0;
+uint8_t ringBouncerMovesSinceTurn = 0;
 constexpr uint8_t RING_BOUNCER_RING_BRIGHTNESS = 200;
+
+void chooseRingBouncerHeading() {
+  // Components can be -1, 0, or +1, but at least one is active. Reject a
+  // heading that would point straight out through any wall the voxel occupies.
+  for (uint8_t tries = 0; tries < 20; ++tries) {
+    const int8_t dx = int8_t(random8(3)) - 1;
+    const int8_t dy = int8_t(random8(3)) - 1;
+    const int8_t dz = int8_t(random8(3)) - 1;
+    if ((dx == 0 && dy == 0 && dz == 0) ||
+        (ringBouncerX == 0 && dx < 0) || (ringBouncerX == N - 1 && dx > 0) ||
+        (ringBouncerY == 0 && dy < 0) || (ringBouncerY == N - 1 && dy > 0) ||
+        (ringBouncerZ == 0 && dz < 0) || (ringBouncerZ == N - 1 && dz > 0)) continue;
+    ringBouncerDX = dx; ringBouncerDY = dy; ringBouncerDZ = dz;
+    return;
+  }
+  // Guaranteed inward fallback for the extremely unlikely rejection limit.
+  ringBouncerDX = ringBouncerX == 0 ? 1 : (ringBouncerX == N - 1 ? -1 : 0);
+  ringBouncerDY = ringBouncerY == 0 ? 1 : (ringBouncerY == N - 1 ? -1 : 0);
+  ringBouncerDZ = ringBouncerZ == 0 ? 1 : (ringBouncerZ == N - 1 ? -1 : 1);
+}
 
 void resetRingBouncer() {
   ringBouncerX = ringBouncerY = ringBouncerZ = 2;
-  ringBouncerDX = 1; ringBouncerDY = -1; ringBouncerDZ = 1;
+  ringBouncerDX = 1; ringBouncerDY = -1; ringBouncerDZ = 0;
+  ringBouncerMovesSinceTurn = 0;
   ringBouncerMovedAt = millis();
 }
 
-void stepRingBouncerAxis(int8_t &position, int8_t &delta) {
+bool stepRingBouncerAxis(int8_t &position, int8_t &delta) {
+  if (delta == 0) return false;
   int8_t next = position + delta;
   if (next < 0 || next >= N) {
     delta = -delta;
     next = position + delta;
+    position = next;
+    return true;
   }
   position = next;
+  return false;
 }
 
 void renderRingBouncer() {
@@ -575,9 +601,13 @@ void renderRingBouncer() {
   const uint16_t moveIntervalMs = 320U - (uint16_t(speedControl) * 230U / 255U);
   if (now - ringBouncerMovedAt >= moveIntervalMs) {
     ringBouncerMovedAt = now;
-    stepRingBouncerAxis(ringBouncerX, ringBouncerDX);
-    stepRingBouncerAxis(ringBouncerY, ringBouncerDY);
-    stepRingBouncerAxis(ringBouncerZ, ringBouncerDZ);
+    const bool bounced = stepRingBouncerAxis(ringBouncerX, ringBouncerDX) |
+      stepRingBouncerAxis(ringBouncerY, ringBouncerDY) |
+      stepRingBouncerAxis(ringBouncerZ, ringBouncerDZ);
+    if (bounced || ++ringBouncerMovesSinceTurn >= 7) {
+      chooseRingBouncerHeading();
+      ringBouncerMovesSinceTurn = 0;
+    }
   }
   fill_solid(leds, MATRIX_LEDS, CRGB::Black);
   setVoxel(ringBouncerX, ringBouncerY, ringBouncerZ, CHSV(voxelBouncerHue, 255, 255));

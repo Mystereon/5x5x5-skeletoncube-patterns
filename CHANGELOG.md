@@ -2,6 +2,12 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.2 — Wild full-volume Ring Bouncer
+
+Ring Bouncer no longer follows a fixed three-axis diagonal between two opposite corners. At each wall impact—and after a short run of moves—it chooses a fresh, safe heading with any combination of X, Y, and Z travel. The voxel therefore explores lines, planes, and diagonals across the full 5×5×5 volume while never pointing through a wall.
+
+The physical controls and 200 / 255 local rear-ring scale are unchanged: short GPIO2 changes ring colour, short GPIO4 changes voxel colour, and long presses remain Banner / Next Pattern. The verified ESP32-S3 Huge APP build measures **1,316,251 bytes / 41% flash** and **53,784 bytes / 16% global RAM**.
+
 ## v0.7.1 — Android Ring Bouncer controller alignment
 
 The native Android **CubeFXPhone** catalog now exposes controller-specific BLE pattern ID **57**, Ring Bouncer, alongside the existing 56 canonical patterns. Its pattern screen explains that short **GPIO2** changes the rear-ring colour and short **GPIO4** changes the bouncing-voxel colour. The Android firmware page now documents the ESP32-S3 Zero profile: GPIO6 data, GPIO2/GPIO4 buttons, 125 matrix LEDs plus the 12-pixel rear ring, 40 embedded modes, and the Huge APP no-OTA setup.
