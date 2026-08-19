@@ -207,6 +207,8 @@ enum Pattern : uint8_t {
   PATTERN_RING_BOUNCER,
   PATTERN_HOLOGRAM,
   PATTERN_VOXEL_WORLD,
+  PATTERN_PHONE_VU,
+  PATTERN_PHONE_SPECTRUM,
   PATTERN_COUNT
 };
 
@@ -218,7 +220,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -228,6 +230,19 @@ uint8_t frameRateLimit = 120;       // 30 .. 120 FPS render cap; default is perf
 uint32_t cycleDurationMs = 30000;   // 5 .. 120 seconds from the browser
 uint32_t patternStartedAt = 0;
 uint32_t lastFrameAt = 0;
+
+// Phone audio arrives as a compact BLE envelope, never as microphone samples.
+constexpr uint8_t AUDIO_PACKET_MAGIC = 0xA7;
+constexpr uint8_t AUDIO_PACKET_VERSION = 0x01;
+constexpr uint8_t AUDIO_BAND_COUNT = 8;
+constexpr uint8_t AUDIO_PACKET_BYTES = 13;
+constexpr uint16_t AUDIO_STALE_MS = 550;
+uint8_t audioBands[AUDIO_BAND_COUNT] = {};
+uint8_t audioPeaks[AUDIO_BAND_COUNT] = {};
+uint8_t audioLoudness = 0;
+uint8_t audioBeat = 0;
+uint32_t audioReceivedAt = 0;
+uint32_t audioPeakFellAt = 0;
 
 uint16_t frameIntervalMs() {
   return 1000U / frameRateLimit;
@@ -774,6 +789,65 @@ void renderVoxelWorld(float t) {
     const int16_t worldY = voxelWorldCameraY + y;
     const uint8_t worldZ = voxelWorldCameraZ + z;
     if (sampleVoxelWorld(worldX, worldY, worldZ, block)) setVoxel(x, y, z, block);
+  }
+}
+
+// Phone Audio Visualiser -------------------------------------------------------
+// The Android app analyses its own microphone and sends eight already-smoothed
+// magnitudes. The S3 owns only this small envelope state, never raw audio.
+uint8_t audioLiveValue(uint8_t value, uint32_t now) {
+  const uint32_t age = now - audioReceivedAt;
+  if (age <= AUDIO_STALE_MS) return value;
+  if (age >= AUDIO_STALE_MS + 700UL) return 0;
+  return scale8(value, uint8_t(255UL - ((age - AUDIO_STALE_MS) * 255UL / 700UL)));
+}
+
+void decayAudioPeaks(uint32_t now) {
+  if (now - audioPeakFellAt < 34) return;
+  audioPeakFellAt = now;
+  for (uint8_t i = 0; i < AUDIO_BAND_COUNT; ++i) {
+    const uint8_t live = audioLiveValue(audioBands[i], now);
+    if (audioPeaks[i] > live) audioPeaks[i] = qsub8(audioPeaks[i], 4);
+  }
+}
+
+void renderPhoneVuMeter() {
+  const uint32_t now = millis();
+  decayAudioPeaks(now);
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  for (uint8_t band = 0; band < AUDIO_BAND_COUNT; ++band) {
+    const uint8_t level = audioLiveValue(audioBands[band], now);
+    const uint8_t filled = uint8_t((uint16_t(level) * LAYERS + 254) / 255);
+    const uint8_t peak = uint8_t((uint16_t(audioPeaks[band]) * (LAYERS - 1) + 127) / 255);
+    // Eight clear columns use the outer X/Y footprint of the 5x5 base.
+    const uint8_t x = band < 4 ? band : 4 - (band - 4);
+    const uint8_t y = band < 4 ? 0 : 4;
+    const uint8_t hue = 150 - band * 15;
+    for (uint8_t z = 0; z < filled; ++z) setVoxel(x, y, z, CHSV(hue, 245, 100 + z * 30));
+    if (peak < LAYERS && level > 0) {
+      if (audioBeat > 150) setVoxel(x, y, peak, CRGB::White);
+      else setVoxel(x, y, peak, CHSV(28, 250, 255));
+    }
+  }
+}
+
+void renderPhoneSpectrum3D() {
+  const uint32_t now = millis();
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t lift = uint8_t((uint16_t(audioLiveValue(audioLoudness, now)) * 2) / 255);
+  for (uint8_t y = 0; y < ROWS; ++y) for (uint8_t x = 0; x < COLUMNS; ++x) {
+    const uint8_t band = (x * 2 + y) % AUDIO_BAND_COUNT;
+    const uint8_t level = audioLiveValue(audioBands[band], now);
+    const uint8_t height = min<uint8_t>(LAYERS, lift + uint8_t((uint16_t(level) * LAYERS + 254) / 255));
+    const uint8_t hue = 157 - band * 13;
+    for (uint8_t z = 0; z < height; ++z) {
+      const uint8_t shade = 70 + ((z + 1) * 185 / LAYERS);
+      setVoxel(x, y, z, CHSV(hue, 235, shade));
+    }
+  }
+  if (audioLiveValue(audioBeat, now) > 160) {
+    // A central beat spark is visible from a distance without consuming a frame buffer.
+    setVoxel(2, 2, 4, CRGB::White);
   }
 }
 
@@ -1699,6 +1773,8 @@ void renderCurrentPattern() {
     case PATTERN_RING_BOUNCER: renderRingBouncer(); break;
     case PATTERN_HOLOGRAM: renderHologram(t); break;
     case PATTERN_VOXEL_WORLD: renderVoxelWorld(t); break;
+    case PATTERN_PHONE_VU: renderPhoneVuMeter(); break;
+    case PATTERN_PHONE_SPECTRUM: renderPhoneSpectrum3D(); break;
     default: break;
   }
 }
@@ -1804,6 +1880,17 @@ void renderMoodRing(float t) {
         if (voxelWorldCameraZ <= 1) mood = scout < 2 ? CRGB(120, 235, 255) : CHSV(145, 230, 80 + scale8(wave, 120));
         else if (voxelWorldCameraZ >= 6) mood = scout < 2 ? CRGB(190, 235, 255) : CHSV(151, 120, 90 + scale8(wave, 145));
         else mood = scout < 2 ? CRGB(215, 255, 120) : CHSV(91 + (ringPixel & 1) * 7, 235, 90 + scale8(wave, 130));
+        break;
+      }
+      case PATTERN_PHONE_VU:
+      case PATTERN_PHONE_SPECTRUM: {
+        const uint32_t now = millis();
+        const uint8_t bass = audioLiveValue(audioBands[0], now);
+        const uint8_t mid = audioLiveValue(audioBands[3], now);
+        const uint8_t beat = audioLiveValue(audioBeat, now);
+        const uint8_t marker = (uint8_t(t * 25.0f) + ringPixel) % MOOD_RING_LEDS;
+        if (beat > 170 && marker < 2) mood = CRGB::White;
+        else mood = CHSV(150 - scale8(mid, 105), 245, 35 + scale8(bass, 220));
         break;
       }
       case PATTERN_ZARCH:
@@ -1960,6 +2047,11 @@ void runShortPatternAction(bool primary) {
     case PATTERN_VOXEL_WORLD:
       if (primary) voxelWorldPalette++;
       else cycleSpeed();
+      break;
+    case PATTERN_PHONE_VU:
+    case PATTERN_PHONE_SPECTRUM:
+      if (primary) cycleSpeed();
+      else cycleBrightness();
       break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
@@ -2195,6 +2287,8 @@ bool selectCanonicalPattern(int canonicalId) {
     case 57: currentPattern = PATTERN_RING_BOUNCER; break;
     case 58: currentPattern = PATTERN_HOLOGRAM; break;
     case 59: currentPattern = PATTERN_VOXEL_WORLD; break;
+    case 60: currentPattern = PATTERN_PHONE_VU; break;
+    case 61: currentPattern = PATTERN_PHONE_SPECTRUM; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
@@ -2264,10 +2358,33 @@ void handleBleCommand(const String &json) {
   publishBleStatus(false, "unknown command");
 }
 
+bool handleAudioSpectrumPacket(const uint8_t *packet, size_t length) {
+  if (packet == nullptr || length != AUDIO_PACKET_BYTES) return false;
+  if (packet[0] != AUDIO_PACKET_MAGIC || packet[1] != AUDIO_PACKET_VERSION) return false;
+  for (uint8_t i = 0; i < AUDIO_BAND_COUNT; ++i) {
+    // A small firmware-side smoother removes BLE cadence jitter while keeping
+    // a sharp enough leading edge for beats. No sound data is retained.
+    audioBands[i] = uint8_t((uint16_t(audioBands[i]) + packet[3 + i] * 3U) >> 2);
+    audioPeaks[i] = max(audioPeaks[i], audioBands[i]);
+  }
+  audioLoudness = uint8_t((uint16_t(audioLoudness) + packet[11] * 3U) >> 2);
+  audioBeat = max(packet[12], uint8_t(audioBeat * 2U / 3U));
+  audioReceivedAt = millis();
+  return true;
+}
+
 class CubeFXBleCommandCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *characteristic) override {
-    const String received = characteristic->getValue();
-    if (received.length() > 0 && received.length() <= 180) handleBleCommand(received);
+    const size_t length = characteristic->getLength();
+    const uint8_t *raw = characteristic->getData();
+    if (handleAudioSpectrumPacket(raw, length)) return;
+    if (raw != nullptr && length > 0 && length <= 180) {
+      // Normal controls remain concise JSON. Audio uses the binary branch above.
+      String json;
+      json.reserve(length + 1);
+      for (size_t i = 0; i < length; ++i) json += char(raw[i]);
+      handleBleCommand(json);
+    }
   }
 };
 

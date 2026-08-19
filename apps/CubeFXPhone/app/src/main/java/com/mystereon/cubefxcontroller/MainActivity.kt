@@ -1,6 +1,7 @@
 package com.mystereon.cubefxcontroller
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -52,23 +53,39 @@ private val Muted = Color(0xFF9BA896)
 
 class MainActivity : ComponentActivity() {
     private lateinit var cubeFx: CubeFxBleClient
+    private lateinit var audioAnalyzer: PhoneAudioSpectrumAnalyzer
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.values.all { it }) cubeFx.scan()
+    }
+    private val audioPermissionRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) audioAnalyzer.start()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         cubeFx = CubeFxBleClient(applicationContext)
-        setContent { CubeFxPhoneApp(cubeFx) { permissionRequest.launch(arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)) } }
+        audioAnalyzer = PhoneAudioSpectrumAnalyzer(cubeFx::sendAudioSpectrum)
+        setContent {
+            CubeFxPhoneApp(
+                cubeFx = cubeFx,
+                audioAnalyzer = audioAnalyzer,
+                requestBluetooth = { permissionRequest.launch(arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)) },
+                requestAudio = {
+                    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) audioAnalyzer.start()
+                    else audioPermissionRequest.launch(Manifest.permission.RECORD_AUDIO)
+                },
+            )
+        }
     }
 
-    override fun onDestroy() { cubeFx.close(); super.onDestroy() }
+    override fun onStop() { audioAnalyzer.stop(); super.onStop() }
+    override fun onDestroy() { audioAnalyzer.close(); cubeFx.close(); super.onDestroy() }
 }
 
 private enum class PhonePage { LIVE, PATTERNS, SETUP, FIRMWARE, WATCH }
 
 @Composable
-private fun CubeFxPhoneApp(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit) {
+private fun CubeFxPhoneApp(cubeFx: CubeFxBleClient, audioAnalyzer: PhoneAudioSpectrumAnalyzer, requestBluetooth: () -> Unit, requestAudio: () -> Unit) {
     var page by remember { mutableStateOf(PhonePage.LIVE) }
     val state by cubeFx.state.collectAsStateWithLifecycle()
     val notice by cubeFx.notice.collectAsStateWithLifecycle()
@@ -83,7 +100,7 @@ private fun CubeFxPhoneApp(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit
             NavButton("WATCH", page == PhonePage.WATCH) { page = PhonePage.WATCH }
         }
         when (page) {
-            PhonePage.LIVE -> LivePage(cubeFx, requestBluetooth)
+            PhonePage.LIVE -> LivePage(cubeFx, audioAnalyzer, requestBluetooth, requestAudio)
             PhonePage.PATTERNS -> PatternPage(cubeFx)
             PhonePage.SETUP -> SetupPage(cubeFx)
             PhonePage.FIRMWARE -> FirmwarePage()
@@ -93,11 +110,13 @@ private fun CubeFxPhoneApp(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit
 }
 
 @Composable
-private fun LivePage(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit) {
+private fun LivePage(cubeFx: CubeFxBleClient, audioAnalyzer: PhoneAudioSpectrumAnalyzer, requestBluetooth: () -> Unit, requestAudio: () -> Unit) {
     var brightness by remember { mutableIntStateOf(100) }
     var speed by remember { mutableIntStateOf(150) }
     var auto by remember { mutableStateOf(true) }
     var banner by remember { mutableStateOf("CUBE 4 3 2 1 0") }
+    val audioStreaming by audioAnalyzer.streaming.collectAsStateWithLifecycle()
+    val connection by cubeFx.state.collectAsStateWithLifecycle()
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Your cube, on hand.", color = TextMain, fontSize = 30.sp, fontWeight = FontWeight.Black)
         Text("Connect to CubeFX-5x5x5 to apply patterns, Banner controls, engine settings, and ESP32 button-pin changes.", color = Muted, fontSize = 15.sp)
@@ -111,6 +130,12 @@ private fun LivePage(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit) {
             StepButton(if (auto) "AUTO" else "MANUAL") { auto = !auto }
         }
         ActionButton("APPLY ENGINE", Lime) { cubeFx.sendEngine(brightness, speed, auto) }
+        NoticeCard("AUDIO LINK", if (audioStreaming) "Microphone is analysed locally and eight spectrum bands are streaming to CubeFX over BLE. No raw audio is recorded or sent." else "Start Audio Link to allow microphone analysis for Phone VU Meter and Phone Spectrum 3-D. CubeFX receives only eight band levels, loudness, and a beat flag.")
+        ActionButton(if (audioStreaming) "STOP AUDIO LINK" else "START AUDIO LINK", if (audioStreaming) Warning else Cyan) {
+            if (audioStreaming) audioAnalyzer.stop()
+            else if (connection == PhoneConnection.READY) requestAudio()
+        }
+        if (!audioStreaming && connection != PhoneConnection.READY) Text("Connect to CubeFX before starting the Audio Link.", color = Amber, fontSize = 12.sp)
         TextField(value = banner, onValueChange = { banner = it.take(60) }, label = { Text("Banner text") }, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton("SEND BANNER", Cyan) { cubeFx.sendBanner(banner) }
@@ -124,8 +149,8 @@ private fun LivePage(cubeFx: CubeFxBleClient, requestBluetooth: () -> Unit) {
 @Composable
 private fun PatternPage(cubeFx: CubeFxBleClient) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("59 PATTERNS", color = TextMain, fontWeight = FontWeight.Black, fontSize = 22.sp)
-        Text("Tap an EMBEDDED mode to send it to CubeFXWeb. Ring Bouncer is controller mode 57: short GPIO2 changes ring colour and short GPIO4 changes bouncing-voxel colour. Help Me Obi-Wan Hologram is controller mode 58. Voxel World Explorer is controller mode 59: it samples a larger virtual block world through the physical cube. UPLOAD DEMO effects remain direct-upload sketches in the public library.", color = Muted, fontSize = 13.sp)
+        Text("61 PATTERNS", color = TextMain, fontWeight = FontWeight.Black, fontSize = 22.sp)
+        Text("Tap an EMBEDDED mode to send it to CubeFXWeb. Ring Bouncer is controller mode 57: short GPIO2 changes ring colour and short GPIO4 changes bouncing-voxel colour. Help Me Obi-Wan Hologram is controller mode 58. Voxel World Explorer is controller mode 59. Phone VU Meter and Phone Spectrum 3-D are controller modes 60 and 61; first start Audio Link on LIVE. UPLOAD DEMO effects remain direct-upload sketches in the public library.", color = Muted, fontSize = 13.sp)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             items(CubeFxPatternCatalog.all, key = { it.id }) { pattern ->
                 Row(
@@ -146,7 +171,7 @@ private fun FirmwarePage() {
     val context = LocalContext.current
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("CUBEFX FIRMWARE", color = TextMain, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        NoticeCard("CUBEFXWEB", "Download the current ESP32-S3 Zero Wi-Fi + BLE firmware sketch. It includes 42 embedded CubeFX modes, a 125-voxel cube plus 12-pixel rear ring, configurable button pins, and the recommended Huge APP no-OTA profile.")
+        NoticeCard("CUBEFXWEB", "Download the current ESP32-S3 Zero Wi-Fi + BLE firmware sketch. It includes 44 embedded CubeFX modes, a 125-voxel cube plus 12-pixel rear ring, live phone-audio visualisers, configurable button pins, and the recommended Huge APP no-OTA profile.")
         ActionButton("OPEN CUBEFXWEB FIRMWARE", Lime) {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mystereon/5x5x5-skeletoncube-patterns/tree/main/standalone/CubeFXWeb")))
         }
@@ -154,7 +179,7 @@ private fun FirmwarePage() {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mystereon/5x5x5-skeletoncube-patterns/releases/latest")))
         }
         Text("Flash checklist: 1) download the repository or release source; 2) open CubeFXWeb.ino in Arduino IDE with the whole CubeFXWeb folder intact; 3) install FastLED and select ESP32S3 Dev Module, 4 MB flash, Huge APP, and QSPI PSRAM; 4) use GPIO6 data, GPIO2 primary, and GPIO4 secondary; 5) edit CubeFXConfig.h only when changing physical wiring; 6) upload by USB, then pair this controller with CubeFX-5x5x5.", color = Muted, fontSize = 14.sp)
-        Text("Ring Bouncer uses BLE pattern ID 57. Its short GPIO2 press changes the rear-ring colour, while short GPIO4 changes the bouncing voxel colour; long presses keep their Banner and Next Pattern actions. Help Me Obi-Wan Hologram is BLE pattern ID 58. Voxel World Explorer is BLE pattern ID 59: GPIO2 changes its mineral palette and GPIO4 adjusts flight speed. The app can save button-pin choices over BLE, but LED data-pin and cube-dimension changes require editing CubeFXConfig.h and reflashing.", color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("Ring Bouncer uses BLE pattern ID 57. Help Me Obi-Wan Hologram is ID 58. Voxel World Explorer is ID 59: GPIO2 changes its mineral palette and GPIO4 adjusts flight speed. Phone VU Meter and Phone Spectrum 3-D are IDs 60 and 61 and require the Android Audio Link; only eight analysed bands, loudness, and a beat flag cross BLE. The app can save button-pin choices over BLE, but LED data-pin and cube-dimension changes require editing CubeFXConfig.h and reflashing.", color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 

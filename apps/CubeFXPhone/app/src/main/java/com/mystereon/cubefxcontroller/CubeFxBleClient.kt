@@ -70,6 +70,22 @@ class CubeFxBleClient(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun sendAction(primary: Boolean) = send("{\"op\":\"action\",\"primary\":$primary}")
 
+    /** Sends only the 13-byte analyser envelope; raw microphone PCM never leaves the phone. */
+    @SuppressLint("MissingPermission")
+    fun sendAudioSpectrum(packet: ByteArray) {
+        if (packet.size != 13) return
+        val active = gatt
+        val target = command
+        if (active == null || target == null || _state.value != PhoneConnection.READY) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            active.writeCharacteristic(target, packet, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+        } else {
+            target.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            target.value = packet
+            @Suppress("DEPRECATION") active.writeCharacteristic(target)
+        }
+    }
+
     @SuppressLint("MissingPermission")
     fun send(json: String) {
         val active = gatt

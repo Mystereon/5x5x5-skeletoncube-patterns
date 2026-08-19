@@ -2,6 +2,14 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.5 — Phone Audio Link, VU Meter, and 3-D Spectrum
+
+CubeFXWeb now adds two phone-driven audio visualiser modes: **Phone VU Meter** (BLE ID **60**) and **Phone Spectrum 3-D** (BLE ID **61**). The Android controller requests microphone permission only when the user explicitly starts Audio Link. It captures and analyses a local 256-sample PCM window, combines the result into eight visible bands, then streams a tiny 13-byte spectrum envelope at no more than 25 updates per second. The cube never receives, records, or stores raw microphone audio.
+
+The ESP32-S3 retains only eight band values, loudness, a beat estimate, and a timestamp. It smooths packet cadence, decays to black after 550 ms without packets, renders eight vertical VU columns or a raised 3-D spectrum field, and uses the 12-pixel rear ring for bass-weighted colour and white beat accents. The binary protocol, consent boundary, packet format, and audio-link behaviour are documented in [`AUDIO_SPECTRUM_PROTOCOL.md`](standalone/CubeFXWeb/AUDIO_SPECTRUM_PROTOCOL.md).
+
+CubeFXWeb now exposes **44 selectable modes**. The native CubeFXPhone app now has an opt-in Audio Link panel and a fresh debug APK build. The ESP32-S3 Huge APP build verifies at **1,322,495 bytes / 42% flash** and **54,192 bytes / 16% global RAM**.
+
 ## v0.7.4 — Voxel World Explorer and Volumetric Engine Demo
 
 CubeFXWeb mode **42**, **Voxel World Explorer**, uses the physical 5×5×5 matrix as a live window into an original procedural **48×48×14** block world. Rather than allocate a 32 KB-plus world-colour framebuffer, every requested terrain block is derived from its virtual coordinates. The self-playing camera follows a long rectangular flight path and moves through the vertical terrain range, making water, grass, dirt, stone, trees, cave gaps, and mineral cues appear and disappear through the physical viewport.
