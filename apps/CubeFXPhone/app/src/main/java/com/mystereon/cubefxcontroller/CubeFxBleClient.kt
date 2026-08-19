@@ -29,7 +29,7 @@ class CubeFxBleClient(private val context: Context) {
     private var command: BluetoothGattCharacteristic? = null
     private val _state = MutableStateFlow(PhoneConnection.OFFLINE)
     val state: StateFlow<PhoneConnection> = _state
-    private val _notice = MutableStateFlow("Connect a CubeFX ESP32-C3")
+    private val _notice = MutableStateFlow("Connect a CubeFX ESP32-S3")
     val notice: StateFlow<String> = _notice
 
     companion object {
@@ -69,6 +69,14 @@ class CubeFxBleClient(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun sendAction(primary: Boolean) = send("{\"op\":\"action\",\"primary\":$primary}")
+
+    /** Direct, discoverable next-pattern control for ordinary users. */
+    @SuppressLint("MissingPermission")
+    fun sendNextPattern() = send("{\"op\":\"next\"}")
+
+    /** Deliberately triggers a short CubeFX hidden scene; no physical ritual is required. */
+    @SuppressLint("MissingPermission")
+    fun sendSecretScene(scene: Int) = send("{\"op\":\"secret\",\"scene\":${scene.coerceIn(0, 4)}}")
 
     /** Sends only the 13-byte analyser envelope; raw microphone PCM never leaves the phone. */
     @SuppressLint("MissingPermission")

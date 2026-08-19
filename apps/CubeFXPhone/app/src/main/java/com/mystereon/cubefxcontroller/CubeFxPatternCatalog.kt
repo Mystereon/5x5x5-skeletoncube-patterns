@@ -3,7 +3,7 @@ package com.mystereon.cubefxcontroller
 data class CubeFxPattern(val id: Int, val title: String, val embedded: Boolean)
 
 object CubeFxPatternCatalog {
-    private val embedded = setOf(1, 9, 10, 11, 12, 19, 20, 21, 22, 26, 28) + (29..63)
+    private val embedded = setOf(1, 9, 10, 11, 12, 19, 20, 21, 22, 26, 28) + (29..73)
 
     val all = listOf(
         "Red Vector Cube", "Solid Cube", "Sphere", "Octahedron", "Voxel Model", "Bouncing 2×2×2 Block", "Blue Rain", "Column Sweep",
@@ -19,6 +19,16 @@ object CubeFxPatternCatalog {
         "Phone VU Meter — live microphone link",
         "Phone Spectrum 3-D — live microphone link",
         "Cloud-Top Rain — GPIO2 rain / GPIO4 rear-ring colour",
-        "Tumbling Gold Ring — GPIO2 gold / GPIO4 tumble speed"
+        "Rotating Gold O — GPIO2 gold / GPIO4 turn speed",
+        "Reactor Core — cyan containment / amber core",
+        "Reactor Core Meltdown — alert state",
+        "Targeting System — live reticle",
+        "Phosphor Green Radar — sweeping scope",
+        "Ghost Detector — ectoplasmic scan",
+        "Alert — red warning field",
+        "Intersecting Planes — moving geometry",
+        "Oscillating Wave Field — surface motion",
+        "Rainbow Spiral — volumetric ribbon",
+        "Plasma Entity Containment — energised cage"
     ).mapIndexed { index, title -> CubeFxPattern(index + 1, title, index + 1 in embedded) }
 }

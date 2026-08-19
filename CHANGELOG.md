@@ -2,13 +2,23 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.7 — Owner Controls, Gold O, and Next-Wave Instruments
+
+Restored CubeFXPhone as a rich, muggle-proof controller rather than a stripped utility: its side navigation now leads to a rebuilt LIVE tab with direct **Next Pattern**, engine, Auto/Manual, Banner, context-action, Audio Link, firmware, ESP32 setup, Watch, repository, wiring, and support controls. The Owner Easter Eggs tab offers one-tap deliberate triggers for all five hidden scenes and an in-app Owner’s Guide for their backup routes. Firmware now accepts the concise connected-app BLE command `{"op":"secret","scene":0..4}` without replacing the original button and timed paths.
+
+Replaced the unreadable sparse torus with **Rotating Gold O**, a centred discrete 5×5 gold O that turns cleanly face-on to edge-on around one upright visual axis against a violet/cyan acrylic halo.
+
+Added the first ten original next-wave scenes as CubeFXWeb modes **47–56** / BLE IDs **64–73**: **Reactor Core**, **Reactor Core Meltdown**, **Targeting System**, **Phosphor Green Radar**, **Ghost Detector**, **Alert**, **Intersecting Planes**, **Oscillating Wave Field**, **Rainbow Spiral**, and **Plasma Entity Containment**. Each includes a rear-ring treatment intended to activate the acrylic enclosure as a distinct visual layer.
+
+The ESP32-S3 Huge APP build verifies at **1,328,035 bytes / 42% flash** and **54,208 bytes / 16% global RAM**. CubeFXPhone builds successfully with **73** selectable entries and a refreshed debug APK.
+
 ## v0.7.6 — Physical Direction Fixes, Acrylic Contrast, Cloud Rain, and Gold Ring
 
 Corrected CubeFXWeb’s physical coordinate interpretation. The 3×5 and 5×5 Banner now samples glyph columns in the correct perimeter order, so entered words read forward instead of requiring reversed text. Matrix Rain, Matrix Drift, and Red Matrix Rain now move from the physical top layer (`z = 4`) down to the physical base (`z = 0`), with their trails remaining above the descending heads.
 
 Added **Cloud-Top Rain** as CubeFXWeb mode **45** / BLE ID **62**. A pale drifting cloud deck remains on physical layer five while blue rain descends below it. Short GPIO2 cycles rain hue and short GPIO4 cycles the rear-ring hue; its default blue rain and amber ring deliberately use opposing chroma to show the acrylic enclosure.
 
-Added **Tumbling Gold Ring** as CubeFXWeb mode **46** / BLE ID **63**. Its 24-point ring geometry is calculated once at setup, then turned through pitch and yaw with compact integer FastLED lookup math. Short GPIO2 changes gold tone; short GPIO4 changes tumble speed. A deep violet rear-ring halo with a cyan travelling accent creates the intended high-contrast acrylic reveal.
+Added **Rotating Gold O** as CubeFXWeb mode **46** / BLE ID **63**. It is a deliberately readable discrete 5×5 gold O, centred in the cube, which turns only around the cube’s upright visual axis so it alternates between a full face and a slim edge. Short GPIO2 changes gold tone; short GPIO4 changes turn speed. A deep violet rear-ring halo with a cyan travelling accent creates the intended high-contrast acrylic reveal.
 
 Fish Tank and Fairies are now genuinely open-volume scenes. Fish Tank uses only orange fish, tails, and sparse bright bubbles inside black cube space; the bright blue rear ring makes the acrylic enclosure read as water. Fairies use only floating bodies and wings inside black space, while a bright green rear ring forms their implied magical habitat. High-contrast Matrix and fire-family effects now use complementary rear-ring hues—green versus violet, red versus cyan, orange versus blue, and blue versus amber—rather than same-colour enclosure light.
 

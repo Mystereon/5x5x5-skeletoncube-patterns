@@ -211,6 +211,16 @@ enum Pattern : uint8_t {
   PATTERN_PHONE_SPECTRUM,
   PATTERN_CLOUD_TOP_RAIN,
   PATTERN_GOLD_RING,
+  PATTERN_REACTOR_CORE,
+  PATTERN_REACTOR_MELTDOWN,
+  PATTERN_TARGETING_SYSTEM,
+  PATTERN_PHOSPHOR_RADAR,
+  PATTERN_GHOST_DETECTOR,
+  PATTERN_ALERT,
+  PATTERN_INTERSECTING_PLANES,
+  PATTERN_OSCILLATING_WAVE,
+  PATTERN_RAINBOW_SPIRAL,
+  PATTERN_PLASMA_CONTAINMENT,
   PATTERN_COUNT
 };
 
@@ -222,7 +232,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D", "Cloud-Top Rain", "Tumbling Gold Ring"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D", "Cloud-Top Rain", "Rotating Gold O", "Reactor Core", "Reactor Core Meltdown", "Targeting System", "Phosphor Green Radar", "Ghost Detector", "Alert", "Intersecting Planes", "Oscillating Wave Field", "Rainbow Spiral", "Plasma Entity Containment"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -347,38 +357,141 @@ void renderCloudTopRain(float t) {
   }
 }
 
-// Tumbling Gold Ring -----------------------------------------------------------
-// The circular source points are built once. Each frame rotates only 24 sparse
-// points, avoiding expensive per-voxel trigonometry on the physical cube.
-constexpr uint8_t GOLD_RING_POINTS = 24;
-int8_t goldRingBaseX[GOLD_RING_POINTS];
-int8_t goldRingBaseY[GOLD_RING_POINTS];
+// Rotating Gold O --------------------------------------------------------------
+// A clean 5×5 square O is kept upright in the physical X/Z plane. It turns
+// around the cube's upright centre axis, reading face-on, then edge-on, then
+// face-on again—like a bright gold coin revolving inside the cube.
+constexpr uint8_t GOLD_O_POINTS = 16;
+constexpr int8_t GOLD_O_X[GOLD_O_POINTS] = {
+  -2, -1, 0, 1, 2,  2, 2, 2,  1, 0, -1, -2,  -2, -2, -2, -1
+};
+constexpr int8_t GOLD_O_Z[GOLD_O_POINTS] = {
+   2,  2, 2, 2, 2,  1, 0,-1, -2,-2, -2, -2,  -1,  0,  1,  2
+};
 uint8_t goldRingHue = 31;
-
-void buildGoldRingLUT() {
-  for (uint8_t i = 0; i < GOLD_RING_POINTS; ++i) {
-    const uint8_t phase = uint8_t((uint16_t(i) * 256U) / GOLD_RING_POINTS);
-    goldRingBaseX[i] = int8_t((int16_t(cos8(phase)) - 128) * 2 / 128);
-    goldRingBaseY[i] = int8_t((int16_t(sin8(phase)) - 128) * 2 / 128);
-  }
-}
 
 void renderTumblingGoldRing(float t) {
   fill_solid(leds, MATRIX_LEDS, CRGB::Black);
-  const int16_t pitchSin = int16_t(sin8(uint8_t(t * 23.0f))) - 128;
-  const int16_t pitchCos = int16_t(cos8(uint8_t(t * 23.0f))) - 128;
-  const int16_t yawSin = int16_t(sin8(uint8_t(t * 17.0f))) - 128;
-  const int16_t yawCos = int16_t(cos8(uint8_t(t * 17.0f))) - 128;
-  for (uint8_t i = 0; i < GOLD_RING_POINTS; ++i) {
-    const int16_t localX = goldRingBaseX[i];
-    const int16_t localY = goldRingBaseY[i];
-    const int16_t tiltedY = localY * pitchCos / 127;
-    const int16_t tiltedZ = localY * pitchSin / 127;
-    const int16_t x = (localX * yawCos - tiltedY * yawSin) / 127;
-    const int16_t y = (localX * yawSin + tiltedY * yawCos) / 127;
-    const uint8_t gleam = 142 + scale8(sin8(uint8_t(i * 11 + t * 44.0f)), 110);
-    setVoxel(2 + x, 2 + y, 2 + tiltedZ, CHSV(goldRingHue + (i & 1) * 4, 220, gleam));
+  const uint8_t turn = uint8_t(t * 26.0f);
+  const int16_t s = int16_t(sin8(turn)) - 128;
+  const int16_t c = int16_t(cos8(turn)) - 128;
+  for (uint8_t i = 0; i < GOLD_O_POINTS; ++i) {
+    const int16_t x = GOLD_O_X[i];
+    const int8_t spunX = int8_t((x * c) / 127);
+    const int8_t spunY = int8_t((x * s) / 127);
+    const uint8_t gleam = 155 + scale8(sin8(turn + i * 17), 100);
+    setVoxel(2 + spunX, 2 + spunY, 2 + GOLD_O_Z[i], CHSV(goldRingHue + (i & 1) * 3, 220, gleam));
   }
+}
+
+void renderReactorCore(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t pulse = sin8(uint8_t(t * 46.0f));
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const uint8_t radius = voxelGeometry[indexFromXYZ(x, y, z)].centreRadius16;
+    if (radius < 14) setVoxel(x, y, z, CHSV(12 + scale8(pulse, 17), 255, 190 + scale8(pulse, 65)));
+    else if (radius < 28 && ((x + y + z + uint8_t(t * 8.0f)) & 1)) setVoxel(x, y, z, CHSV(24, 245, 105 + scale8(pulse, 100)));
+  }
+  for (uint8_t i = 0; i < N; ++i) {
+    setVoxel(i, 0, 0, CRGB(15, 80, 105)); setVoxel(i, 4, 4, CRGB(15, 80, 105));
+    setVoxel(0, i, 4, CRGB(15, 80, 105)); setVoxel(4, i, 0, CRGB(15, 80, 105));
+  }
+}
+
+void renderReactorMeltdown(float t) {
+  fadeToBlackBy(leds, MATRIX_LEDS, 54);
+  const uint8_t beat = sin8(uint8_t(t * 92.0f));
+  for (uint8_t burst = 0; burst < 4; ++burst) {
+    const uint8_t seed = uint8_t(t * 31.0f) + burst * 59;
+    const uint8_t x = seed % N, y = (seed / N + burst * 2) % N;
+    const uint8_t height = 1 + ((seed >> 4) % N);
+    for (uint8_t z = 0; z <= height; ++z) addVoxel(x, y, z, CHSV(3 + z * 8, 255, 145 + scale8(beat, 110)));
+  }
+  if (beat > 215) for (uint8_t z = 0; z < N; ++z) setVoxel(2, 2, z, CRGB(255, 230, 170));
+}
+
+void renderTargetingSystem(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t a = sin8(uint8_t(t * 21.0f)), b = sin8(uint8_t(t * 15.0f + 74));
+  const int8_t targetX = 2 + int8_t(a > 168) - int8_t(a < 86);
+  const int8_t targetZ = 2 + int8_t(b > 168) - int8_t(b < 86);
+  for (uint8_t i = 0; i < N; ++i) { setVoxel(i, 4, 2, CRGB(50, 0, 0)); setVoxel(2, 4, i, CRGB(50, 0, 0)); }
+  setVoxel(targetX, 4, targetZ, CRGB::White);
+  if ((uint8_t(t * 8.0f) & 1) == 0) {
+    setVoxel(targetX - 1, 4, targetZ, CRGB(255, 0, 0)); setVoxel(targetX + 1, 4, targetZ, CRGB(255, 0, 0));
+    setVoxel(targetX, 4, targetZ - 1, CRGB(255, 0, 0)); setVoxel(targetX, 4, targetZ + 1, CRGB(255, 0, 0));
+  }
+}
+
+void renderPhosphorRadar(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t sweep = uint8_t(t * 8.0f) % 9;
+  for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const uint8_t range = abs(int8_t(x) - 2) + abs(int8_t(y) - 2);
+    if (x + y == sweep || x + y + 4 == sweep) setVoxel(x, y, 0, CHSV(96, 245, 120));
+    else if (range == 2 || range == 3) setVoxel(x, y, 0, CHSV(96, 210, 30));
+  }
+  setVoxel(2, 2, 0, CRGB(80, 255, 80));
+  if ((uint8_t(t * 2.0f) & 1) == 0) setVoxel(4, 1, 0, CRGB(200, 255, 150));
+}
+
+void renderGhostDetector(float t) {
+  fadeToBlackBy(leds, MATRIX_LEDS, 72);
+  const uint8_t phase = uint8_t(t * 18.0f);
+  for (uint8_t i = 0; i < 7; ++i) {
+    const uint8_t hash = phase * 43U + i * 71U;
+    addVoxel(hash % N, (hash / 5U) % N, (hash / 17U) % N, CHSV(143 + (i & 1) * 17, 175, 70 + (hash & 63)));
+  }
+  const uint8_t drift = sin8(uint8_t(t * 14.0f));
+  const int8_t ghostX = 2 + int8_t(drift > 170) - int8_t(drift < 85);
+  setVoxel(ghostX, 3, 3, CRGB(150, 235, 255)); setVoxel(ghostX, 3, 2, CRGB(70, 165, 215));
+  setVoxel(ghostX - 1, 3, 2, CRGB(40, 100, 155)); setVoxel(ghostX + 1, 3, 2, CRGB(40, 100, 155));
+}
+
+void renderAlert(float t) {
+  const bool on = ((uint8_t(t * 9.0f) & 1) == 0);
+  fill_solid(leds, MATRIX_LEDS, on ? CRGB(220, 0, 0) : CRGB::Black);
+  if (on) for (uint8_t x = 0; x < N; ++x) setVoxel(x, 2, 2, CRGB(255, 145, 0));
+}
+
+void renderIntersectingPlanes(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t offset = uint8_t(t * 6.0f) % N;
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    if ((x + offset) % N == 2) setVoxel(x, y, z, CHSV(150, 250, 190));
+    if ((y + offset) % N == 2) addVoxel(x, y, z, CHSV(12, 250, 190));
+    if ((z + offset) % N == 2) addVoxel(x, y, z, CHSV(92, 245, 170));
+  }
+}
+
+void renderOscillatingWaveField(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t phase = uint8_t(t * 36.0f);
+  for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const uint8_t height = sin8(phase + x * 35 + y * 23) * 4U / 255U;
+    setVoxel(x, y, height, CHSV(145 + height * 11, 235, 160 + height * 20));
+  }
+}
+
+void renderRainbowSpiral(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t phase = uint8_t(t * 47.0f);
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const VoxelGeometry &g = voxelGeometry[indexFromXYZ(x, y, z)];
+    if ((g.centreRadius16 > 14 && g.centreRadius16 < 39) && ((g.blackHoleAngle + z * 46 + phase) % 74 < 18)) setVoxel(x, y, z, CHSV(g.blackHoleAngle + phase, 255, 255));
+  }
+}
+
+void renderPlasmaContainment(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const uint8_t pulse = sin8(uint8_t(t * 35.0f));
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const bool edge = x == 0 || x == 4 || y == 0 || y == 4 || z == 0 || z == 4;
+    if (edge && ((x + y + z) & 1)) setVoxel(x, y, z, CHSV(151, 245, 55 + scale8(pulse, 140)));
+  }
+  setVoxel(2, 2, 2, CHSV(190 + scale8(pulse, 35), 235, 180 + scale8(pulse, 75)));
+  setVoxel(1, 2, 2, CHSV(205, 245, 100 + scale8(pulse, 125)));
+  setVoxel(3, 2, 2, CHSV(205, 245, 100 + scale8(pulse, 125)));
 }
 
 void renderPlasma(float t) {
@@ -1833,6 +1946,16 @@ void renderCurrentPattern() {
     case PATTERN_PHONE_SPECTRUM: renderPhoneSpectrum3D(); break;
     case PATTERN_CLOUD_TOP_RAIN: renderCloudTopRain(t); break;
     case PATTERN_GOLD_RING: renderTumblingGoldRing(t); break;
+    case PATTERN_REACTOR_CORE: renderReactorCore(t); break;
+    case PATTERN_REACTOR_MELTDOWN: renderReactorMeltdown(t); break;
+    case PATTERN_TARGETING_SYSTEM: renderTargetingSystem(t); break;
+    case PATTERN_PHOSPHOR_RADAR: renderPhosphorRadar(t); break;
+    case PATTERN_GHOST_DETECTOR: renderGhostDetector(t); break;
+    case PATTERN_ALERT: renderAlert(t); break;
+    case PATTERN_INTERSECTING_PLANES: renderIntersectingPlanes(t); break;
+    case PATTERN_OSCILLATING_WAVE: renderOscillatingWaveField(t); break;
+    case PATTERN_RAINBOW_SPIRAL: renderRainbowSpiral(t); break;
+    case PATTERN_PLASMA_CONTAINMENT: renderPlasmaContainment(t); break;
     default: break;
   }
 }
@@ -1965,6 +2088,33 @@ void renderMoodRing(float t) {
         mood = orbit < 2 ? CHSV(145, 205, 255) : CHSV(188 + scale8(wave, 14), 225, 105 + scale8(wave, 120));
         break;
       }
+      case PATTERN_REACTOR_CORE:
+        mood = CHSV(151 + scale8(wave, 12), 245, 90 + scale8(wave, 145));
+        break;
+      case PATTERN_REACTOR_MELTDOWN:
+      case PATTERN_ALERT:
+        mood = ((uint8_t(t * 11.0f) + ringPixel) & 1) ? CHSV(0, 255, 255) : CHSV(151, 245, 70);
+        break;
+      case PATTERN_TARGETING_SYSTEM:
+        if (ringPixel == (uint8_t(t * 9.0f) % MOOD_RING_LEDS)) mood = CRGB::White;
+        else mood = CHSV(0, 255, 115);
+        break;
+      case PATTERN_PHOSPHOR_RADAR:
+      case PATTERN_GHOST_DETECTOR:
+        mood = ringPixel == (uint8_t(t * 12.0f) % MOOD_RING_LEDS) ? CRGB(180, 255, 170) : CHSV(96, 245, 70 + scale8(wave, 70));
+        break;
+      case PATTERN_INTERSECTING_PLANES:
+        mood = CHSV(150 + ringPixel * 15, 245, 110 + scale8(wave, 115));
+        break;
+      case PATTERN_OSCILLATING_WAVE:
+        mood = CHSV(145 + scale8(wave, 28), 235, 100 + scale8(wave, 125));
+        break;
+      case PATTERN_RAINBOW_SPIRAL:
+        mood = CHSV(uint8_t(t * 35.0f) + ringPixel * 21, 255, 215);
+        break;
+      case PATTERN_PLASMA_CONTAINMENT:
+        mood = ringPixel == (uint8_t(t * 16.0f) % MOOD_RING_LEDS) ? CRGB(220, 120, 255) : CHSV(151, 245, 95 + scale8(wave, 125));
+        break;
       case PATTERN_ZARCH:
         mood = zarchImpactLife
           ? CHSV(12 + scale8(wave, 16), 250, 210 + scale8(wave, 45))
@@ -2371,6 +2521,16 @@ bool selectCanonicalPattern(int canonicalId) {
     case 61: currentPattern = PATTERN_PHONE_SPECTRUM; break;
     case 62: currentPattern = PATTERN_CLOUD_TOP_RAIN; break;
     case 63: currentPattern = PATTERN_GOLD_RING; break;
+    case 64: currentPattern = PATTERN_REACTOR_CORE; break;
+    case 65: currentPattern = PATTERN_REACTOR_MELTDOWN; break;
+    case 66: currentPattern = PATTERN_TARGETING_SYSTEM; break;
+    case 67: currentPattern = PATTERN_PHOSPHOR_RADAR; break;
+    case 68: currentPattern = PATTERN_GHOST_DETECTOR; break;
+    case 69: currentPattern = PATTERN_ALERT; break;
+    case 70: currentPattern = PATTERN_INTERSECTING_PLANES; break;
+    case 71: currentPattern = PATTERN_OSCILLATING_WAVE; break;
+    case 72: currentPattern = PATTERN_RAINBOW_SPIRAL; break;
+    case 73: currentPattern = PATTERN_PLASMA_CONTAINMENT; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
@@ -2415,6 +2575,16 @@ void handleBleCommand(const String &json) {
     bannerScrollSpeed = constrain(readJsonInt(json, "speed", bannerScrollSpeed), 1, 255);
     bannerOffset = 0;
     publishBleStatus(true, "banner applied");
+    return;
+  }
+  if (op == "secret") {
+    const int scene = readJsonInt(json, "scene", -1);
+    if (scene < 0 || scene > 4) {
+      publishBleStatus(false, "unknown secret scene");
+    } else {
+      startSecretScene(uint8_t(scene));
+      publishBleStatus(true, "secret scene triggered");
+    }
     return;
   }
   if (op == "next") { autoCycle = false; advancePattern(); publishBleStatus(true, "next pattern"); return; }
@@ -2532,7 +2702,6 @@ void setup() {
   FastLED.setBrightness(brightness);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
   buildGeometryLUT();
-  buildGoldRingLUT();
   randomSeed(esp_random());
   resetZarchScene();
   seedLife();
