@@ -2,6 +2,14 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.4 — Voxel World Explorer and Volumetric Engine Demo
+
+CubeFXWeb mode **42**, **Voxel World Explorer**, uses the physical 5×5×5 matrix as a live window into an original procedural **48×48×14** block world. Rather than allocate a 32 KB-plus world-colour framebuffer, every requested terrain block is derived from its virtual coordinates. The self-playing camera follows a long rectangular flight path and moves through the vertical terrain range, making water, grass, dirt, stone, trees, cave gaps, and mineral cues appear and disappear through the physical viewport.
+
+The 12-pixel rear ring now reports the virtual camera state: water-blue at low altitude, green terrestrial travel at middle height, and pale airborne scan light at high altitude. The browser selector lists the mode, BLE ID **59** selects it, GPIO2 changes its mineral palette, and GPIO4 changes flight speed. CubeFXPhone’s catalog and firmware page have been updated and the native Android debug build completed successfully.
+
+Added [`standalone/VolumetricEngineDemo`](standalone/VolumetricEngineDemo/), a direct-upload ESP32-S3 developer tool with a scalable volume mapper, setup-time LUTs, reusable voxel primitives, a non-blocking `millis()` timeline, and a concise editable `DEMO_STEPS[]` pattern editor. CubeFXWeb verifies at **1,321,075 bytes / 41% flash** and **54,168 bytes / 16% global RAM**. The standalone tool verifies at **432,343 bytes / 13% flash** and **27,940 bytes / 8% global RAM**.
+
 ## v0.7.3 — Help Me Obi-Wan Hologram
 
 CubeFXWeb mode **41** is a compact blue hologram projection. A perimeter projector base and sparse upward light cone frame a small cyan humanoid silhouette with head, shoulders, outstretched arms, torso, and widening skirt. A moving scanline brightens one layer at a time while deterministic tiny dropouts make the transmission shimmer rather than look like solid sculpture.

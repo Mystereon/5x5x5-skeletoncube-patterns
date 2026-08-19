@@ -206,6 +206,7 @@ enum Pattern : uint8_t {
   PATTERN_ZARCH,
   PATTERN_RING_BOUNCER,
   PATTERN_HOLOGRAM,
+  PATTERN_VOXEL_WORLD,
   PATTERN_COUNT
 };
 
@@ -217,7 +218,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -659,6 +660,121 @@ void renderHologram(float t) {
   setHologramVoxel(1, 2, 1, 122, scanLayer, beat);                         // widening skirt
   setHologramVoxel(2, 2, 1, 165, scanLayer, beat);
   setHologramVoxel(3, 2, 1, 122, scanLayer, beat);
+}
+
+// Voxel World Explorer --------------------------------------------------------
+// The physical 5x5x5 cube is a moving window into a larger procedural world.
+// No 48x48x14 CRGB world buffer is stored: each requested virtual block is
+// derived from its coordinates, so memory stays suitable for the ESP32-S3.
+constexpr uint8_t VOXEL_WORLD_X = 48;
+constexpr uint8_t VOXEL_WORLD_Y = 48;
+constexpr uint8_t VOXEL_WORLD_Z = 14;
+int16_t voxelWorldCameraX = 3;
+int16_t voxelWorldCameraY = 3;
+uint8_t voxelWorldCameraZ = 0;
+uint8_t voxelWorldPalette = 0;
+
+uint8_t voxelWorldHash(int16_t x, int16_t y, int16_t z) {
+  uint32_t h = uint32_t(uint16_t(x) * 374761393UL) ^ uint32_t(uint16_t(y) * 668265263UL) ^ uint32_t(uint16_t(z) * 2246822519UL);
+  h = (h ^ (h >> 13)) * 1274126177UL;
+  return uint8_t(h ^ (h >> 16));
+}
+
+uint8_t voxelWorldTerrainHeight(int16_t x, int16_t y) {
+  const uint8_t noise = voxelWorldHash(x, y, 0);
+  const uint8_t rolling = uint8_t((uint16_t(x * 3 + y * 5) + (noise >> 4)) % 5);
+  // Sparse water basins provide readable blue channels between grassy hills.
+  if ((noise & 31) == 0 || ((x + y) % 23) == 0) return 1;
+  return 2 + rolling;
+}
+
+bool sampleVoxelWorld(int16_t x, int16_t y, uint8_t z, CRGB &colour) {
+  if (z >= VOXEL_WORLD_Z) return false;
+  const uint8_t terrain = voxelWorldTerrainHeight(x, y);
+  const uint8_t h = voxelWorldHash(x, y, z);
+  const bool tree = terrain > 2 && voxelWorldHash(x, y, 7) % 29 == 0;
+
+  // Water fills the deliberately low terrain cells; there is no full world
+  // framebuffer, just a deterministic virtual landscape behind the viewport.
+  if (terrain == 1 && z <= 1) {
+    colour = CHSV(145 + (h & 7), 225, z == 1 ? 175 : 105);
+    return true;
+  }
+
+  if (z < terrain) {
+    // Small subterranean gaps and rare bright mineral voxels create cave/ore
+    // cues as the physical viewport rises and falls through the world.
+    if (z > 0 && z + 1 < terrain && (h & 31) < 3) return false;
+    if (z > 0 && z < terrain - 1 && (h & 63) == 0) {
+      colour = voxelWorldPalette & 1 ? CRGB(18, 150, 255) : CRGB(30, 255, 105);
+      return true;
+    }
+    if (z == terrain - 1) {
+      colour = CHSV(76 + (h & 7), 225, 105 + (h & 55)); // grass surface
+    } else if (z + 2 >= terrain) {
+      colour = CRGB(88 + (h & 23), 47 + (h & 14), 15);  // warm dirt
+    } else {
+      colour = CRGB(35 + (h & 19), 41 + (h & 16), 46 + (h & 20)); // stone
+    }
+    return true;
+  }
+
+  if (tree) {
+    const uint8_t trunkBase = terrain;
+    if (z >= trunkBase && z <= trunkBase + 2) {
+      colour = CRGB(100, 50 + (h & 14), 12);
+      return true;
+    }
+    if (z >= trunkBase + 2 && z <= trunkBase + 4) {
+      const int8_t leafSpan = z == trunkBase + 4 ? 0 : 1;
+      // A surrounding leaf canopy is sampled by neighbouring virtual x/y
+      // coordinates below, giving the impression of a whole tree in a slice.
+      colour = CHSV(91 + (h & 7), 240, 75 + (h & 75));
+      return true;
+    }
+  }
+
+  // Look for leaves from nearby tree trunks so the canopy fills real volume.
+  for (int8_t oy = -1; oy <= 1; ++oy) for (int8_t ox = -1; ox <= 1; ++ox) {
+    const uint8_t nearbyTerrain = voxelWorldTerrainHeight(x + ox, y + oy);
+    const bool nearbyTree = nearbyTerrain > 2 && voxelWorldHash(x + ox, y + oy, 7) % 29 == 0;
+    if (nearbyTree && z >= nearbyTerrain + 2 && z <= nearbyTerrain + 4 && (abs(ox) + abs(oy) <= 1 || z == nearbyTerrain + 2)) {
+      colour = CHSV(91 + (h & 7), 240, 75 + (h & 75));
+      return true;
+    }
+  }
+  return false;
+}
+
+void updateVoxelWorldCamera(uint32_t now) {
+  // A rectangular fly-through keeps the path readable: long travel, turn,
+  // lateral travel, then a wider return. The cube is one window, not the map.
+  const uint16_t travel = (now / 330UL) % 160U;
+  if (travel < 40) {
+    voxelWorldCameraX = 3 + travel; voxelWorldCameraY = 4;
+  } else if (travel < 80) {
+    voxelWorldCameraX = 43; voxelWorldCameraY = 4 + (travel - 40);
+  } else if (travel < 120) {
+    voxelWorldCameraX = 43 - (travel - 80); voxelWorldCameraY = 43;
+  } else {
+    voxelWorldCameraX = 3; voxelWorldCameraY = 43 - (travel - 120);
+  }
+  // A slow physical ascent/approach turns terrain into caves, treetops, sky,
+  // then back into ground; it is the vertical equivalent of an Amiga viewport.
+  voxelWorldCameraZ = scale8(triwave8(uint8_t(now / 90UL)), VOXEL_WORLD_Z - LAYERS);
+}
+
+void renderVoxelWorld(float t) {
+  (void)t;
+  updateVoxelWorldCamera(millis());
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  for (uint8_t z = 0; z < LAYERS; ++z) for (uint8_t y = 0; y < ROWS; ++y) for (uint8_t x = 0; x < COLUMNS; ++x) {
+    CRGB block;
+    const int16_t worldX = voxelWorldCameraX + x;
+    const int16_t worldY = voxelWorldCameraY + y;
+    const uint8_t worldZ = voxelWorldCameraZ + z;
+    if (sampleVoxelWorld(worldX, worldY, worldZ, block)) setVoxel(x, y, z, block);
+  }
 }
 
 void renderFire(float t) {
@@ -1582,6 +1698,7 @@ void renderCurrentPattern() {
     case PATTERN_ZARCH: renderZarch(t); break;
     case PATTERN_RING_BOUNCER: renderRingBouncer(); break;
     case PATTERN_HOLOGRAM: renderHologram(t); break;
+    case PATTERN_VOXEL_WORLD: renderVoxelWorld(t); break;
     default: break;
   }
 }
@@ -1680,6 +1797,15 @@ void renderMoodRing(float t) {
         else mood = CHSV(148 + scale8(wave, 12), 190, 90 + scale8(wave, 120));
         break;
       }
+      case PATTERN_VOXEL_WORLD: {
+        // The rear ring reports the virtual camera state: low blue water,
+        // green terrestrial travel, then a pale airborne scan at height.
+        const uint8_t scout = (uint8_t(t * 18.0f) + ringPixel) % MOOD_RING_LEDS;
+        if (voxelWorldCameraZ <= 1) mood = scout < 2 ? CRGB(120, 235, 255) : CHSV(145, 230, 80 + scale8(wave, 120));
+        else if (voxelWorldCameraZ >= 6) mood = scout < 2 ? CRGB(190, 235, 255) : CHSV(151, 120, 90 + scale8(wave, 145));
+        else mood = scout < 2 ? CRGB(215, 255, 120) : CHSV(91 + (ringPixel & 1) * 7, 235, 90 + scale8(wave, 130));
+        break;
+      }
       case PATTERN_ZARCH:
         mood = zarchImpactLife
           ? CHSV(12 + scale8(wave, 16), 250, 210 + scale8(wave, 45))
@@ -1726,6 +1852,7 @@ uint32_t activePatternDwellMs() {
   if (currentPattern == PATTERN_AQUARIUM || currentPattern == PATTERN_FAIRY_BOX) {
     return max(cycleDurationMs, AMBIENT_LONG_DWELL_MS);
   }
+  if (currentPattern == PATTERN_VOXEL_WORLD) return max(cycleDurationMs, 90000UL);
   return cycleDurationMs;
 }
 
@@ -1829,6 +1956,10 @@ void runShortPatternAction(bool primary) {
     case PATTERN_RING_BOUNCER:
       if (primary) ringBouncerHue += 32;
       else voxelBouncerHue += 32;
+      break;
+    case PATTERN_VOXEL_WORLD:
+      if (primary) voxelWorldPalette++;
+      else cycleSpeed();
       break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
@@ -2063,6 +2194,7 @@ bool selectCanonicalPattern(int canonicalId) {
     case 56: currentPattern = PATTERN_ZARCH; break;
     case 57: currentPattern = PATTERN_RING_BOUNCER; break;
     case 58: currentPattern = PATTERN_HOLOGRAM; break;
+    case 59: currentPattern = PATTERN_VOXEL_WORLD; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
