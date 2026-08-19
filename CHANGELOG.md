@@ -2,6 +2,18 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.6 — Physical Direction Fixes, Acrylic Contrast, Cloud Rain, and Gold Ring
+
+Corrected CubeFXWeb’s physical coordinate interpretation. The 3×5 and 5×5 Banner now samples glyph columns in the correct perimeter order, so entered words read forward instead of requiring reversed text. Matrix Rain, Matrix Drift, and Red Matrix Rain now move from the physical top layer (`z = 4`) down to the physical base (`z = 0`), with their trails remaining above the descending heads.
+
+Added **Cloud-Top Rain** as CubeFXWeb mode **45** / BLE ID **62**. A pale drifting cloud deck remains on physical layer five while blue rain descends below it. Short GPIO2 cycles rain hue and short GPIO4 cycles the rear-ring hue; its default blue rain and amber ring deliberately use opposing chroma to show the acrylic enclosure.
+
+Added **Tumbling Gold Ring** as CubeFXWeb mode **46** / BLE ID **63**. Its 24-point ring geometry is calculated once at setup, then turned through pitch and yaw with compact integer FastLED lookup math. Short GPIO2 changes gold tone; short GPIO4 changes tumble speed. A deep violet rear-ring halo with a cyan travelling accent creates the intended high-contrast acrylic reveal.
+
+Fish Tank and Fairies are now genuinely open-volume scenes. Fish Tank uses only orange fish, tails, and sparse bright bubbles inside black cube space; the bright blue rear ring makes the acrylic enclosure read as water. Fairies use only floating bodies and wings inside black space, while a bright green rear ring forms their implied magical habitat. High-contrast Matrix and fire-family effects now use complementary rear-ring hues—green versus violet, red versus cyan, orange versus blue, and blue versus amber—rather than same-colour enclosure light.
+
+CubeFXWeb now exposes **46 modes**. CubeFXPhone exposes controller-specific IDs **57–63**, including the new rain and gold-ring modes; a fresh debug APK build is attached. The ESP32-S3 Huge APP build verifies at **1,323,923 bytes / 42% flash** and **54,256 bytes / 16% global RAM**.
+
 ## v0.7.5 — Phone Audio Link, VU Meter, and 3-D Spectrum
 
 CubeFXWeb now adds two phone-driven audio visualiser modes: **Phone VU Meter** (BLE ID **60**) and **Phone Spectrum 3-D** (BLE ID **61**). The Android controller requests microphone permission only when the user explicitly starts Audio Link. It captures and analyses a local 256-sample PCM window, combines the result into eight visible bands, then streams a tiny 13-byte spectrum envelope at no more than 25 updates per second. The cube never receives, records, or stores raw microphone audio.

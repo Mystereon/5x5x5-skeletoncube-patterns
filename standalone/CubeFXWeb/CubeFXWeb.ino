@@ -209,6 +209,8 @@ enum Pattern : uint8_t {
   PATTERN_VOXEL_WORLD,
   PATTERN_PHONE_VU,
   PATTERN_PHONE_SPECTRUM,
+  PATTERN_CLOUD_TOP_RAIN,
+  PATTERN_GOLD_RING,
   PATTERN_COUNT
 };
 
@@ -220,7 +222,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D", "Cloud-Top Rain", "Tumbling Gold Ring"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -288,12 +290,13 @@ void renderMatrixRain(float t) {
   const uint8_t frame = uint8_t(t * 7.0f);
   for (uint8_t x = 0; x < N; ++x) {
     for (uint8_t y = 0; y < N; ++y) {
-      const int8_t head = (MATRIX_COLUMN_PHASE[y][x] + frame) % (N + 4) - 2;
-      // Deep emerald body; the head is yellow-green, never white.
+      const int8_t head = N + 1 - ((MATRIX_COLUMN_PHASE[y][x] + frame) % (N + 4));
+      // z=4 is physically top and z=0 physically bottom. The head therefore
+      // descends through the cube; its trail remains above it, never below.
       addVoxel(x, y, head, CHSV(76, 255, 255));
-      addVoxel(x, y, head - 1, CRGB(0, 118, 16));
-      addVoxel(x, y, head - 2, CRGB(0, 42, 5));
-      addVoxel(x, y, head - 3, CRGB(0, 16, 2));
+      addVoxel(x, y, head + 1, CRGB(0, 118, 16));
+      addVoxel(x, y, head + 2, CRGB(0, 42, 5));
+      addVoxel(x, y, head + 3, CRGB(0, 16, 2));
     }
   }
 }
@@ -303,12 +306,12 @@ void renderRedMatrixRain(float t) {
   const uint8_t frame = uint8_t(t * 8.0f);
   for (uint8_t x = 0; x < N; ++x) {
     for (uint8_t y = 0; y < N; ++y) {
-      const int8_t head = (MATRIX_COLUMN_PHASE[y][x] + frame) % (N + 5) - 2;
+      const int8_t head = N + 1 - ((MATRIX_COLUMN_PHASE[y][x] + frame) % (N + 5));
       // A hot red leading point followed by successively deeper crimson trails.
       addVoxel(x, y, head, CRGB(255, 42, 12));
-      addVoxel(x, y, head - 1, CRGB(155, 5, 2));
-      addVoxel(x, y, head - 2, CRGB(70, 0, 0));
-      addVoxel(x, y, head - 3, CRGB(24, 0, 0));
+      addVoxel(x, y, head + 1, CRGB(155, 5, 2));
+      addVoxel(x, y, head + 2, CRGB(70, 0, 0));
+      addVoxel(x, y, head + 3, CRGB(24, 0, 0));
     }
   }
 }
@@ -318,11 +321,63 @@ void renderMatrixDrift(float t) {
   const uint8_t frame = uint8_t(t * 6.0f);
   // Preserve the original diagonal wash intentionally as a separate effect.
   for (uint8_t x = 0; x < N; ++x) for (uint8_t y = 0; y < N; ++y) {
-    const int8_t head = (frame + x * 2 + y * 3) % (N + 5) - 2;
+    const int8_t head = N + 1 - ((frame + x * 2 + y * 3) % (N + 5));
     addVoxel(x, y, head, CHSV(80, 245, 235));
-    addVoxel(x, y, head - 1, CRGB(0, 105, 12));
-    addVoxel(x, y, head - 2, CRGB(0, 36, 4));
-    addVoxel(x, y, head - 3, CRGB(0, 10, 1));
+    addVoxel(x, y, head + 1, CRGB(0, 105, 12));
+    addVoxel(x, y, head + 2, CRGB(0, 36, 4));
+    addVoxel(x, y, head + 3, CRGB(0, 10, 1));
+  }
+}
+
+uint8_t cloudRainHue = 145;
+uint8_t cloudRainRingHue = 20; // blue rain, opposing amber acrylic edge
+
+void renderCloudTopRain(float t) {
+  fadeToBlackBy(leds, MATRIX_LEDS, 76);
+  const uint8_t frame = uint8_t(t * 8.0f);
+  for (uint8_t x = 0; x < N; ++x) for (uint8_t y = 0; y < N; ++y) {
+    const int8_t head = N - ((MATRIX_COLUMN_PHASE[y][x] + frame) % (N + 5));
+    // Rain starts immediately below the cloud deck so the pale top plane is
+    // always visible as a separate weather ceiling at physical layer five.
+    addVoxel(x, y, head, CHSV(cloudRainHue, 235, 245));
+    addVoxel(x, y, head + 1, CHSV(cloudRainHue + 3, 230, 92));
+    addVoxel(x, y, head + 2, CHSV(cloudRainHue + 5, 220, 32));
+    const uint8_t cloud = sin8(x * 57 + y * 39 + uint8_t(t * 9.0f));
+    if (cloud > 106) setVoxel(x, y, N - 1, CRGB(138 + cloud / 3, 157 + cloud / 3, 175 + cloud / 4));
+  }
+}
+
+// Tumbling Gold Ring -----------------------------------------------------------
+// The circular source points are built once. Each frame rotates only 24 sparse
+// points, avoiding expensive per-voxel trigonometry on the physical cube.
+constexpr uint8_t GOLD_RING_POINTS = 24;
+int8_t goldRingBaseX[GOLD_RING_POINTS];
+int8_t goldRingBaseY[GOLD_RING_POINTS];
+uint8_t goldRingHue = 31;
+
+void buildGoldRingLUT() {
+  for (uint8_t i = 0; i < GOLD_RING_POINTS; ++i) {
+    const uint8_t phase = uint8_t((uint16_t(i) * 256U) / GOLD_RING_POINTS);
+    goldRingBaseX[i] = int8_t((int16_t(cos8(phase)) - 128) * 2 / 128);
+    goldRingBaseY[i] = int8_t((int16_t(sin8(phase)) - 128) * 2 / 128);
+  }
+}
+
+void renderTumblingGoldRing(float t) {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const int16_t pitchSin = int16_t(sin8(uint8_t(t * 23.0f))) - 128;
+  const int16_t pitchCos = int16_t(cos8(uint8_t(t * 23.0f))) - 128;
+  const int16_t yawSin = int16_t(sin8(uint8_t(t * 17.0f))) - 128;
+  const int16_t yawCos = int16_t(cos8(uint8_t(t * 17.0f))) - 128;
+  for (uint8_t i = 0; i < GOLD_RING_POINTS; ++i) {
+    const int16_t localX = goldRingBaseX[i];
+    const int16_t localY = goldRingBaseY[i];
+    const int16_t tiltedY = localY * pitchCos / 127;
+    const int16_t tiltedZ = localY * pitchSin / 127;
+    const int16_t x = (localX * yawCos - tiltedY * yawSin) / 127;
+    const int16_t y = (localX * yawSin + tiltedY * yawCos) / 127;
+    const uint8_t gleam = 142 + scale8(sin8(uint8_t(i * 11 + t * 44.0f)), 110);
+    setVoxel(2 + x, 2 + y, 2 + tiltedZ, CHSV(goldRingHue + (i & 1) * 4, 220, gleam));
   }
 }
 
@@ -1375,8 +1430,8 @@ void renderRunningLegs(float t) {
 
 void renderFairyBox(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  // The external mood LED now provides the enclosure glow, so the fairies
-  // receive every voxel of the physical cube rather than an internal frame.
+  // The acrylic enclosure is the fairy habitat. The cube remains open black
+  // space, making the coloured insects look suspended in a magical volume.
   // Three drifting fairy bodies carry pulsing, asymmetric wings.
   for (uint8_t fairy = 0; fairy < 3; ++fairy) {
     const int8_t x = wrapCoordinate(int(t * (2.2f + fairy * 0.4f)) + fairy * 2);
@@ -1387,21 +1442,19 @@ void renderFairyBox(float t) {
     const uint8_t wingValue = 80 + uint8_t((sinf(t * 10.0f + fairy) + 1.0f) * 85.0f);
     addVoxel(x - 1, y, z, CHSV(145 + fairy * 35, 120, wingValue));
     addVoxel(x + 1, y, z, CHSV(145 + fairy * 35, 120, wingValue));
-    addVoxel(x, y, z + 1, CRGB(35, 95, 35));
+    addVoxel(x, y, z + 1, CRGB(180, 255, 120));
   }
 }
 
 void renderAquarium(float t) {
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  // The external acrylic-edge LED is now the tank-frame glow. Fill the whole
-  // 5×5×5 matrix with water and reserve no cube voxels for a visual border.
-  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
-    const uint8_t water = 18 + uint8_t((sinf(t * 2.0f + x + y + z) + 1.0f) * 13.0f);
-    setVoxel(x, y, z, CHSV(151, 220, water));
-  }
+  // Water belongs to the bright blue acrylic-edge ring, not as a dim voxel
+  // fill. Open black space gives the orange fish far more visual separation.
   for (uint8_t fish = 0; fish < 2; ++fish) {
     const bool swimsRight = fish == 0;
-    const int8_t x = wrapCoordinate(int(t * (2.5f + fish * 0.4f)) + fish * 3);
+    const int8_t x = swimsRight
+      ? wrapCoordinate(int(t * 2.5f) + fish * 3)
+      : wrapCoordinate(-int(t * 2.9f) + fish * 3);
     const int8_t y = 1 + fish * 2;
     const int8_t z = 1 + ((int(t * 1.4f) + fish * 2) % 3);
     const CRGB orange = fish == 0 ? CRGB(255, 85, 0) : CRGB(255, 145, 15);
@@ -1412,6 +1465,9 @@ void renderAquarium(float t) {
     addVoxel(tail, y, z + 1, CRGB(170, 35, 0));
     addVoxel(x, y + (swimsRight ? 1 : -1), z, CRGB(255, 220, 95));
   }
+  const uint8_t bubbleX = uint8_t(t * 1.8f) % N;
+  const uint8_t bubbleZ = uint8_t(t * 3.2f) % N;
+  setVoxel(bubbleX, 2, bubbleZ, CRGB(125, 220, 255));
 }
 
 void renderPyramid(float t) {
@@ -1775,6 +1831,8 @@ void renderCurrentPattern() {
     case PATTERN_VOXEL_WORLD: renderVoxelWorld(t); break;
     case PATTERN_PHONE_VU: renderPhoneVuMeter(); break;
     case PATTERN_PHONE_SPECTRUM: renderPhoneSpectrum3D(); break;
+    case PATTERN_CLOUD_TOP_RAIN: renderCloudTopRain(t); break;
+    case PATTERN_GOLD_RING: renderTumblingGoldRing(t); break;
     default: break;
   }
 }
@@ -1789,24 +1847,26 @@ void renderMoodRing(float t) {
     const uint8_t wave = sin8(phase);
     switch (currentPattern) {
       case PATTERN_AQUARIUM:
-        // Slow aqua caustics travel around the rear edge while the frameless
-        // matrix remains entirely available for water and fish.
-        mood = CHSV(146 + scale8(wave, 13), 220, 135 + scale8(wave, 105));
+        // The acrylic is the water. Bright blue caustics define the enclosure
+        // while orange fish move freely through otherwise open matrix space.
+        mood = wave > 226 ? CRGB(160, 245, 255) : CHSV(145 + scale8(wave, 12), 238, 210 + scale8(wave, 45));
         break;
       case PATTERN_FAIRY_BOX:
-        // Green base glow with small gold/magenta fairy glints on the acrylic.
+        // Bright green acrylic habitat with small gold/magenta fairy glints.
         mood = wave > 224
           ? CHSV((ringPixel & 1) ? 226 : 35, 205, 255)
-          : CHSV(91 + (ringPixel % 3) * 6, 225, 105 + scale8(wave, 125));
+          : CHSV(91 + (ringPixel % 3) * 6, 240, 175 + scale8(wave, 80));
         break;
       case PATTERN_MATRIX_RAIN:
       case PATTERN_MATRIX_DRIFT:
       case PATTERN_RED_MATRIX_RAIN: {
         const uint8_t fall = (uint8_t(t * 15.0f) + ringPixel) % MOOD_RING_LEDS;
         const bool head = fall < 2;
+        // Opposite chroma makes the rear acrylic read as a separate luminous
+        // enclosure rather than just an extension of the matrix colour.
         mood = currentPattern == PATTERN_RED_MATRIX_RAIN
-          ? (head ? CHSV(2, 245, 255) : CHSV(0, 250, 70 + scale8(wave, 85)))
-          : (head ? CHSV(72, 245, 255) : CHSV(96, 250, 65 + scale8(wave, 75)));
+          ? (head ? CHSV(145, 215, 255) : CHSV(151, 235, 85 + scale8(wave, 105)))
+          : (head ? CHSV(207, 205, 255) : CHSV(219, 235, 90 + scale8(wave, 105)));
         break;
       }
       case PATTERN_VECTOR_CUBE:
@@ -1893,6 +1953,18 @@ void renderMoodRing(float t) {
         else mood = CHSV(150 - scale8(mid, 105), 245, 35 + scale8(bass, 220));
         break;
       }
+      case PATTERN_CLOUD_TOP_RAIN: {
+        const uint8_t fall = (uint8_t(t * 18.0f) + ringPixel) % MOOD_RING_LEDS;
+        mood = fall < 2
+          ? CHSV(cloudRainRingHue, 230, 255)
+          : CHSV(cloudRainRingHue + 5, 165, 62 + scale8(wave, 110));
+        break;
+      }
+      case PATTERN_GOLD_RING: {
+        const uint8_t orbit = (uint8_t(t * 18.0f) + ringPixel) % MOOD_RING_LEDS;
+        mood = orbit < 2 ? CHSV(145, 205, 255) : CHSV(188 + scale8(wave, 14), 225, 105 + scale8(wave, 120));
+        break;
+      }
       case PATTERN_ZARCH:
         mood = zarchImpactLife
           ? CHSV(12 + scale8(wave, 16), 250, 210 + scale8(wave, 45))
@@ -1911,8 +1983,8 @@ void renderMoodRing(float t) {
       case PATTERN_BLUE_FIRE:
       case PATTERN_FIREWORKS:
         mood = currentPattern == PATTERN_BLUE_FIRE
-          ? CHSV(151 + scale8(wave, 22), 240, 105 + scale8(wave, 150))
-          : CHSV(5 + scale8(wave, 24), 250, 115 + scale8(wave, 140));
+          ? CHSV(23 + scale8(wave, 15), 245, 125 + scale8(wave, 135))
+          : CHSV(151 + scale8(wave, 16), 245, 120 + scale8(wave, 135));
         break;
       default:
         mood = CHSV(145, 140, 25 + scale8(wave, 35));
@@ -2052,6 +2124,14 @@ void runShortPatternAction(bool primary) {
     case PATTERN_PHONE_SPECTRUM:
       if (primary) cycleSpeed();
       else cycleBrightness();
+      break;
+    case PATTERN_CLOUD_TOP_RAIN:
+      if (primary) cloudRainHue += 32;
+      else cloudRainRingHue += 32;
+      break;
+    case PATTERN_GOLD_RING:
+      if (primary) goldRingHue += 16;
+      else cycleSpeed();
       break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
@@ -2289,6 +2369,8 @@ bool selectCanonicalPattern(int canonicalId) {
     case 59: currentPattern = PATTERN_VOXEL_WORLD; break;
     case 60: currentPattern = PATTERN_PHONE_VU; break;
     case 61: currentPattern = PATTERN_PHONE_SPECTRUM; break;
+    case 62: currentPattern = PATTERN_CLOUD_TOP_RAIN; break;
+    case 63: currentPattern = PATTERN_GOLD_RING; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
@@ -2450,6 +2532,7 @@ void setup() {
   FastLED.setBrightness(brightness);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
   buildGeometryLUT();
+  buildGoldRingLUT();
   randomSeed(esp_random());
   resetZarchScene();
   seedLife();
