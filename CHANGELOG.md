@@ -2,6 +2,16 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.8 — Control-Path Repair
+
+Repaired the full CubeFX control path after a regression audit. CubeFXWeb’s Pattern Gallery now has both immediate selection and a deliberate **PLAY SELECTED PATTERN** route, so replaying the current effect and selecting a new effect each have a visible command path. The page now shows a command acknowledgement line and checks HTTP responses rather than silently treating every browser request as successful.
+
+The browser controller now includes the same five direct **Easter Egg Control Deck** triggers as the Android controller. Firmware accepts the guarded `/api/control?secret=0..4` route while preserving every physical owner ritual. The direct scenes remain five-second, intentional effects and do not alter the normal pattern catalogue.
+
+CubeFXPhone now presents its **56 firmware-embedded modes** as explicit `PLAY` buttons. The remaining **17 standalone .ino references** are visibly separated and linked to their source rather than behaving as silent, non-playing rows. Android subscribes to the firmware’s BLE status characteristic, so the header distinguishes a sent command from a firmware acknowledgement or rejection.
+
+Added two source-level regression checks: the command-contract verifier confirms all 56 browser/Android modes, five browser/Android secret routes, canonical IDs, shared BLE UUIDs, and embedded browser JavaScript syntax; the low-memory firmware syntax check reuses the Arduino-generated ESP32-S3 command. The Android debug APK compiled successfully after these checks.
+
 ## v0.7.7 — Owner Controls, Gold O, and Next-Wave Instruments
 
 Restored CubeFXPhone as a rich, muggle-proof controller rather than a stripped utility: its side navigation now leads to a rebuilt LIVE tab with direct **Next Pattern**, engine, Auto/Manual, Banner, context-action, Audio Link, firmware, ESP32 setup, Watch, repository, wiring, and support controls. The Owner Easter Eggs tab offers one-tap deliberate triggers for all five hidden scenes and an in-app Owner’s Guide for their backup routes. Firmware now accepts the concise connected-app BLE command `{"op":"secret","scene":0..4}` without replacing the original button and timed paths.
