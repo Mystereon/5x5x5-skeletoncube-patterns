@@ -178,18 +178,30 @@ private fun LivePage(cubeFx: CubeFxBleClient, audioAnalyzer: PhoneAudioSpectrumA
 
 @Composable
 private fun PatternPage(cubeFx: CubeFxBleClient) {
+    val context = LocalContext.current
+    var requestedPatternId by remember { mutableIntStateOf(-1) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("73 PATTERNS", color = TextMain, fontWeight = FontWeight.Black, fontSize = 22.sp)
-        Text("Tap an EMBEDDED mode to send it to CubeFXWeb. Ring Bouncer is controller mode 57: short GPIO2 changes ring colour and short GPIO4 changes bouncing-voxel colour. Help Me Obi-Wan Hologram is controller mode 58. Voxel World Explorer is controller mode 59. Phone VU Meter and Phone Spectrum 3-D are controller modes 60 and 61; first start Audio Link on LIVE. Cloud-Top Rain is controller mode 62: GPIO2 changes rain hue and GPIO4 changes rear-ring hue. Rotating Gold O is mode 63: GPIO2 changes gold hue and GPIO4 changes turn speed.", color = Muted, fontSize = 13.sp)
+        Text("CUBE.FX LIBRARY", color = TextMain, fontWeight = FontWeight.Black, fontSize = 22.sp)
+        Text("The first 56 entries below are the modes built into CubeFXWeb and every PLAY button sends its canonical BLE ID. The remaining 17 are honest standalone reference sketches, kept separate so no visible row silently does nothing.", color = Muted, fontSize = 13.sp)
+        if (requestedPatternId > 0) Text("REQUESTED: ${requestedPatternId.toString().padStart(2, '0')} — awaiting CubeFX acknowledgement", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            items(CubeFxPatternCatalog.all, key = { it.id }) { pattern ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).clickable { if (pattern.embedded) cubeFx.sendPattern(pattern.id) }.padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("${pattern.id.toString().padStart(2, '0')}  ${pattern.title}", color = if (pattern.embedded) TextMain else Muted, fontWeight = FontWeight.Bold)
-                    Text(if (pattern.embedded) "EMBEDDED" else "UPLOAD DEMO", color = if (pattern.embedded) Lime else Amber, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            item { Text("56 EMBEDDED CUBEFXWEB MODES", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 4.dp)) }
+            items(CubeFxPatternCatalog.embeddedModes, key = { it.id }) { pattern ->
+                Button(onClick = { requestedPatternId = pattern.id; cubeFx.sendPattern(pattern.id) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = TextMain)) {
+                    Text("PLAY ${pattern.id.toString().padStart(2, '0')}  ${pattern.title}", fontWeight = FontWeight.Bold)
+                }
+            }
+            item {
+                Column(Modifier.fillMaxWidth().background(Color(0xFF1C1610), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("17 STANDALONE REFERENCE SKETCHES", color = Amber, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Text("These were deliberately never compiled into CubeFXWeb. They require their own Arduino upload and are listed below as reference, not fake play controls.", color = Muted, fontSize = 12.sp)
+                    Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mystereon/5x5x5-skeletoncube-patterns/tree/main/patterns"))) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Amber, contentColor = Color.Black)) { Text("OPEN STANDALONE SKETCHES", fontWeight = FontWeight.Black) }
+                }
+            }
+            items(CubeFxPatternCatalog.standaloneModes, key = { "standalone-${it.id}" }) { pattern ->
+                Row(Modifier.fillMaxWidth().background(Color(0xFF17140E), RoundedCornerShape(12.dp)).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("${pattern.id.toString().padStart(2, '0')}  ${pattern.title}", color = Muted, fontWeight = FontWeight.Bold)
+                    Text("UPLOAD .INO", color = Amber, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
         }

@@ -2413,6 +2413,12 @@ void handleControl() {
   if (web.hasArg("auto")) { autoCycle = web.arg("auto").toInt() != 0; patternStartedAt = millis(); }
   if (web.hasArg("next")) { autoCycle = false; advancePattern(); }
   if (web.hasArg("reseed")) seedLife();
+  if (web.hasArg("secret")) {
+    const int scene = web.arg("secret").toInt();
+    // The browser Owner Control Deck has the same five direct, deliberate
+    // routes as the Android BLE controller. Physical rituals remain intact.
+    if (scene >= 0 && scene <= 4) startSecretScene(uint8_t(scene));
+  }
   handleState();
 }
 

@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
@@ -27,6 +28,7 @@ class CubeFxBleClient(private val context: Context) {
     private val adapter: BluetoothAdapter? get() = manager?.adapter
     private var gatt: BluetoothGatt? = null
     private var command: BluetoothGattCharacteristic? = null
+    private var status: BluetoothGattCharacteristic? = null
     private val _state = MutableStateFlow(PhoneConnection.OFFLINE)
     val state: StateFlow<PhoneConnection> = _state
     private val _notice = MutableStateFlow("Connect a CubeFX ESP32-S3")
@@ -35,6 +37,8 @@ class CubeFxBleClient(private val context: Context) {
     companion object {
         val serviceUuid: UUID = UUID.fromString("6c75a300-7b1d-4f29-a221-000000000001")
         val commandUuid: UUID = UUID.fromString("6c75a300-7b1d-4f29-a221-000000000002")
+        val statusUuid: UUID = UUID.fromString("6c75a300-7b1d-4f29-a221-000000000003")
+        val clientConfigUuid: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
 
     @SuppressLint("MissingPermission")
@@ -110,7 +114,7 @@ class CubeFxBleClient(private val context: Context) {
             target.value = value
             @Suppress("DEPRECATION") active.writeCharacteristic(target)
         }
-        _notice.value = if (ok) "Sent to CubeFX" else "CubeFX write failed"
+        _notice.value = if (ok) "Command sent — waiting for CubeFX acknowledgement" else "CubeFX write failed"
     }
 
     @SuppressLint("MissingPermission")
@@ -138,9 +142,61 @@ class CubeFxBleClient(private val context: Context) {
             } else { _state.value = PhoneConnection.OFFLINE; _notice.value = "CubeFX disconnected" }
         }
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            command = gatt.getService(serviceUuid)?.getCharacteristic(commandUuid)
-            if (command == null) { _state.value = PhoneConnection.ERROR; _notice.value = "CubeFX command service unavailable" }
-            else { _state.value = PhoneConnection.READY; _notice.value = "CubeFX ready" }
+            val service = gatt.getService(serviceUuid)
+            command = service?.getCharacteristic(commandUuid)
+            this@CubeFxBleClient.status = service?.getCharacteristic(statusUuid)
+            if (command == null) {
+                _state.value = PhoneConnection.ERROR
+                _notice.value = "CubeFX command service unavailable"
+                return
+            }
+            command?.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            val statusCharacteristic = this@CubeFxBleClient.status
+            if (statusCharacteristic != null && enableStatusNotifications(gatt, statusCharacteristic)) {
+                _state.value = PhoneConnection.CONNECTING
+                _notice.value = "Enabling CubeFX acknowledgements"
+            } else {
+                _state.value = PhoneConnection.READY
+                _notice.value = "CubeFX ready (no acknowledgement channel)"
+            }
         }
+
+        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            if (descriptor.uuid != clientConfigUuid) return
+            _state.value = PhoneConnection.READY
+            _notice.value = if (status == BluetoothGatt.GATT_SUCCESS) "CubeFX ready — acknowledgements enabled" else "CubeFX ready (acknowledgements unavailable)"
+        }
+
+        override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            if (characteristic.uuid == commandUuid && status != BluetoothGatt.GATT_SUCCESS) _notice.value = "CubeFX write failed ($status)"
+        }
+
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            handleStatus(characteristic, value)
+        }
+
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            handleStatus(characteristic, characteristic.value ?: byteArrayOf())
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun enableStatusNotifications(activeGatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic): Boolean {
+        if (!activeGatt.setCharacteristicNotification(characteristic, true)) return false
+        val descriptor = characteristic.getDescriptor(clientConfigUuid) ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activeGatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == BluetoothGatt.GATT_SUCCESS
+        } else {
+            descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            @Suppress("DEPRECATION") activeGatt.writeDescriptor(descriptor)
+        }
+    }
+
+    private fun handleStatus(characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+        if (characteristic.uuid != statusUuid) return
+        val payload = String(value, StandardCharsets.UTF_8)
+        val message = Regex("\\\"message\\\":\\\"([^\\\"]*)").find(payload)?.groupValues?.getOrNull(1) ?: "status received"
+        _notice.value = if (payload.contains("\"ok\":true")) "CubeFX ✓ $message" else "CubeFX rejected: $message"
     }
 }
