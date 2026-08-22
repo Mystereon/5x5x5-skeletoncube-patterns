@@ -182,10 +182,10 @@ private fun PatternPage(cubeFx: CubeFxBleClient) {
     var requestedPatternId by remember { mutableIntStateOf(-1) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("CUBE.FX LIBRARY", color = TextMain, fontWeight = FontWeight.Black, fontSize = 22.sp)
-        Text("The first 56 entries below are the modes built into CubeFXWeb and every PLAY button sends its canonical BLE ID. The remaining 17 are honest standalone reference sketches, kept separate so no visible row silently does nothing.", color = Muted, fontSize = 13.sp)
+        Text("The first 57 entries below are the modes built into CubeFXWeb and every PLAY button sends its canonical BLE ID. Race Circuit is ID 74: GPIO2 resets its chequered grid and GPIO4 changes the leader camera lead. The remaining 17 are honest standalone reference sketches, kept separate so no visible row silently does nothing.", color = Muted, fontSize = 13.sp)
         if (requestedPatternId > 0) Text("REQUESTED: ${requestedPatternId.toString().padStart(2, '0')} — awaiting CubeFX acknowledgement", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            item { Text("56 EMBEDDED CUBEFXWEB MODES", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 4.dp)) }
+            item { Text("57 EMBEDDED CUBEFXWEB MODES", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 4.dp)) }
             items(CubeFxPatternCatalog.embeddedModes, key = { it.id }) { pattern ->
                 Button(onClick = { requestedPatternId = pattern.id; cubeFx.sendPattern(pattern.id) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Panel, contentColor = TextMain)) {
                     Text("PLAY ${pattern.id.toString().padStart(2, '0')}  ${pattern.title}", fontWeight = FontWeight.Bold)

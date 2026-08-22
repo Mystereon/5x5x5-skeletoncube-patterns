@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <string.h>
 #include "CubeFXConfig.h"
+#include "RaceCircuitTypes.h"
 
 // -----------------------------------------------------------------------------
 // Wi-Fi setup
@@ -221,6 +222,7 @@ enum Pattern : uint8_t {
   PATTERN_OSCILLATING_WAVE,
   PATTERN_RAINBOW_SPIRAL,
   PATTERN_PLASMA_CONTAINMENT,
+  PATTERN_RACE_CIRCUIT,
   PATTERN_COUNT
 };
 
@@ -232,7 +234,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D", "Cloud-Top Rain", "Rotating Gold O", "Reactor Core", "Reactor Core Meltdown", "Targeting System", "Phosphor Green Radar", "Ghost Detector", "Alert", "Intersecting Planes", "Oscillating Wave Field", "Rainbow Spiral", "Plasma Entity Containment"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D", "Cloud-Top Rain", "Rotating Gold O", "Reactor Core", "Reactor Core Meltdown", "Targeting System", "Phosphor Green Radar", "Ghost Detector", "Alert", "Intersecting Planes", "Oscillating Wave Field", "Rainbow Spiral", "Plasma Entity Containment", "Race Circuit"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -957,6 +959,291 @@ void renderVoxelWorld(float t) {
     const int16_t worldY = voxelWorldCameraY + y;
     const uint8_t worldZ = voxelWorldCameraZ + z;
     if (sampleVoxelWorld(worldX, worldY, worldZ, block)) setVoxel(x, y, z, block);
+  }
+}
+
+// Race Circuit ----------------------------------------------------------------
+// An original 300x300 fast-flowing circuit world. The physical cube is the
+// camera's top-front-left viewport, not a stored mini-map: every cell is
+// sampled from a fixed integer centreline and a few deterministic trackside
+// props. That keeps the scene coherent without a 90,000-cell frame buffer.
+constexpr uint16_t RACE_WORLD_SIZE = 300;
+constexpr uint8_t RACE_PATH_POINTS = 24;
+constexpr uint8_t RACE_CAR_COUNT = 4;
+constexpr uint8_t RACE_UNITS_PER_SEGMENT = 16;
+constexpr uint16_t RACE_LAP_UNITS = RACE_PATH_POINTS * RACE_UNITS_PER_SEGMENT;
+constexpr uint16_t RACE_TOTAL_UNITS = RACE_LAP_UNITS * 3;
+constexpr uint32_t RACE_GRID_MS = 4200UL;
+constexpr uint32_t RACE_RESULT_MS = 9000UL;
+constexpr uint8_t RACE_PERIMETER_COLUMNS = 16;
+
+// This is deliberately an original path: a long pit straight, a quick opening
+// sequence, a broad outer sweep, linked changes of direction, a hairpin, and a
+// final complex. It is a fast British-GP-style rhythm, not a copied circuit map.
+const RacePathPoint RACE_PATH[RACE_PATH_POINTS] = {
+  {54,224}, {92,224}, {134,224}, {178,221}, {212,205}, {242,182},
+  {260,152}, {266,120}, {258,91}, {238,68}, {207,53}, {172,48},
+  {137,52}, {110,66}, {94,87}, {106,107}, {134,118}, {150,137},
+  {143,156}, {119,168}, {91,174}, {66,190}, {49,208}, {47,224}
+};
+const RaceTracksideProp RACE_SANDBAGS[] = {
+  {242,184}, {260,153}, {258,91}, {103,107}, {143,156}, {65,190}
+};
+const RaceTracksideProp RACE_SPECTATORS[] = {
+  {211,197}, {230,73}, {176,42}, {120,61}, {82,177}, {56,201}
+};
+const RaceTracksideProp RACE_HILLS[] = {
+  {27,70}, {278,42}, {280,230}, {24,260}, {170,275}
+};
+const uint8_t RACE_CAR_HUES[RACE_CAR_COUNT] = {0, 160, 96, 32};
+const char *const RACE_WIN_MESSAGES[RACE_CAR_COUNT] = {"RED WINS", "BLUE WINS", "LIME WINS", "AMBER WINS"};
+enum RacePhase : uint8_t { RACE_GRID, RACE_RUNNING, RACE_RESULT };
+
+RacePhase racePhase = RACE_GRID;
+uint8_t raceWinnerIndex = 0;
+uint8_t raceEventNumber = 0;
+uint8_t raceViewVariant = 0;
+uint32_t racePhaseStartedAt = 0;
+int16_t raceCameraX = 46;
+int16_t raceCameraY = 216;
+
+uint8_t raceHash(int16_t x, int16_t y) {
+  uint32_t h = uint32_t(uint16_t(x) * 1103515245UL) ^ uint32_t(uint16_t(y) * 2654435761UL);
+  h ^= h >> 13;
+  return uint8_t(h ^ (h >> 16));
+}
+
+RacePathPoint racePathPosition(uint16_t progress) {
+  progress %= RACE_LAP_UNITS;
+  const uint8_t segment = progress / RACE_UNITS_PER_SEGMENT;
+  const uint8_t fraction = progress % RACE_UNITS_PER_SEGMENT;
+  const RacePathPoint &a = RACE_PATH[segment];
+  const RacePathPoint &b = RACE_PATH[(segment + 1) % RACE_PATH_POINTS];
+  return {
+    int16_t(a.x + (int32_t(b.x - a.x) * fraction + RACE_UNITS_PER_SEGMENT / 2) / RACE_UNITS_PER_SEGMENT),
+    int16_t(a.y + (int32_t(b.y - a.y) * fraction + RACE_UNITS_PER_SEGMENT / 2) / RACE_UNITS_PER_SEGMENT)
+  };
+}
+
+uint8_t raceCarPace(uint8_t car) {
+  // Each reset rotates the eventual winner. The lead car is only one map unit
+  // per second quicker than the next car, so the camera can witness real dice.
+  const uint8_t finishingOrder = (car + RACE_CAR_COUNT - raceWinnerIndex) % RACE_CAR_COUNT;
+  return 24 - finishingOrder;
+}
+
+uint16_t raceCarProgress(uint8_t car, uint32_t now) {
+  if (racePhase == RACE_GRID) return 0;
+  const uint32_t elapsed = now - racePhaseStartedAt;
+  return min<uint32_t>(RACE_TOTAL_UNITS, elapsed * raceCarPace(car) / 1000UL);
+}
+
+uint8_t raceLeader(uint32_t now) {
+  if (racePhase == RACE_GRID || racePhase == RACE_RESULT) return raceWinnerIndex;
+  uint8_t leader = 0;
+  uint16_t best = 0;
+  for (uint8_t car = 0; car < RACE_CAR_COUNT; ++car) {
+    const uint16_t progress = raceCarProgress(car, now);
+    if (progress >= best) { best = progress; leader = car; }
+  }
+  return leader;
+}
+
+RacePathPoint raceCarPosition(uint8_t car, uint32_t now) {
+  if (racePhase == RACE_GRID) {
+    // Two staggered grid rows on the chequered pit straight.
+    return {int16_t(66 + (car & 1) * 9), int16_t(217 - (car >> 1) * 7)};
+  }
+  return racePathPosition(raceCarProgress(car, now));
+}
+
+RaceRoadHit raceRoadHit(int16_t x, int16_t y) {
+  RaceRoadHit hit = {65535, 0};
+  for (uint8_t segment = 0; segment < RACE_PATH_POINTS; ++segment) {
+    const RacePathPoint &a = RACE_PATH[segment];
+    const RacePathPoint &b = RACE_PATH[(segment + 1) % RACE_PATH_POINTS];
+    const int32_t dx = b.x - a.x;
+    const int32_t dy = b.y - a.y;
+    const int32_t lengthSq = dx * dx + dy * dy;
+    int32_t along = ((int32_t(x - a.x) * dx + int32_t(y - a.y) * dy) * 16) / lengthSq;
+    along = constrain(along, 0, 16);
+    const int16_t nearX = int16_t(a.x + dx * along / 16);
+    const int16_t nearY = int16_t(a.y + dy * along / 16);
+    const int32_t offsetX = int32_t(x) - nearX;
+    const int32_t offsetY = int32_t(y) - nearY;
+    const uint32_t distanceSq = uint32_t(offsetX * offsetX + offsetY * offsetY);
+    if (distanceSq < hit.distanceSq) hit = {uint16_t(distanceSq), segment};
+  }
+  return hit;
+}
+
+bool raceNearProp(const RaceTracksideProp *props, uint8_t count, int16_t x, int16_t y) {
+  for (uint8_t i = 0; i < count; ++i) {
+    const int16_t dx = x - props[i].x;
+    const int16_t dy = y - props[i].y;
+    if (dx * dx + dy * dy <= 16) return true;
+  }
+  return false;
+}
+
+uint8_t raceTerrainHeight(int16_t x, int16_t y) {
+  // Hand-authored soft hill centres make the same terrain appear wherever the
+  // viewport returns. Heights are strictly 0..2: nothing natural breaches layer 3.
+  uint8_t height = 0;
+  for (uint8_t i = 0; i < sizeof(RACE_HILLS) / sizeof(RACE_HILLS[0]); ++i) {
+    const int16_t dx = x - RACE_HILLS[i].x;
+    const int16_t dy = y - RACE_HILLS[i].y;
+    const uint16_t distanceSq = dx * dx + dy * dy;
+    if (distanceSq < 20 * 20) height = max<uint8_t>(height, 2);
+    else if (distanceSq < 46 * 46) height = max<uint8_t>(height, 1);
+  }
+  return height;
+}
+
+uint8_t raceCloudValue(int16_t x, int16_t y, uint32_t now) {
+  // Two drifting circular cloud cells, repeated every 48 world units. A bright
+  // centre plus a dim boundary gives an anti-aliased look on the five-pixel roof.
+  const int16_t driftX = int16_t((now / 170UL) % 48U);
+  const int16_t driftY = int16_t((now / 235UL) % 48U);
+  int16_t localX = (x + driftX) % 48;
+  int16_t localY = (y + driftY) % 48;
+  if (localX < 0) localX += 48;
+  if (localY < 0) localY += 48;
+  const int16_t centres[][2] = {{12, 13}, {33, 29}};
+  uint16_t best = 65535;
+  for (uint8_t i = 0; i < 2; ++i) {
+    int16_t dx = abs(localX - centres[i][0]); dx = min<int16_t>(dx, 48 - dx);
+    int16_t dy = abs(localY - centres[i][1]); dy = min<int16_t>(dy, 48 - dy);
+    best = min<uint16_t>(best, dx * dx + dy * dy);
+  }
+  if (best <= 42) return 235;
+  if (best <= 96) return 125;
+  return 0;
+}
+
+bool sampleRaceCircuit(int16_t x, int16_t y, uint8_t z, uint32_t now, CRGB &colour) {
+  if (z == 4) {
+    const uint8_t cloud = raceCloudValue(x, y, now);
+    if (cloud == 0) return false;
+    colour = cloud > 180 ? CRGB(205, 230, 235) : CRGB(72, 104, 112);
+    return true;
+  }
+
+  const RaceRoadHit road = raceRoadHit(x, y);
+  if (road.distanceSq <= 42) {
+    if (z != 0) return false;
+    const bool startGrid = abs(y - 224) <= 6 && x >= 55 && x <= 92;
+    if (startGrid) {
+      const bool whiteSquare = (((x - 55) / 4) + ((y - 218) / 4)) & 1;
+      colour = whiteSquare ? CRGB(205, 210, 205) : CRGB(30, 32, 33);
+    } else if (road.distanceSq > 25 || (road.distanceSq < 4 && ((x + y) / 8) & 1)) {
+      colour = CRGB(126, 132, 132); // pale grey edge and broken centre markings
+    } else {
+      colour = CRGB(56, 60, 61);    // slate-grey racing surface
+    }
+    return true;
+  }
+
+  const uint8_t terrain = raceTerrainHeight(x, y);
+  const bool tree = terrain == 0 && road.distanceSq > 220 && (raceHash(x / 4, y / 4) & 31) == 0;
+  if (raceNearProp(RACE_SANDBAGS, sizeof(RACE_SANDBAGS) / sizeof(RACE_SANDBAGS[0]), x, y) && z == 0) {
+    colour = CRGB(138, 104, 35); // deliberately dull yellow sandbags
+    return true;
+  }
+  if (raceNearProp(RACE_SPECTATORS, sizeof(RACE_SPECTATORS) / sizeof(RACE_SPECTATORS[0]), x, y)) {
+    if (z == 1) { colour = CRGB(255, 164, 172); return true; } // pale-pink head
+    if (z == 0) { colour = CHSV(18 + raceHash(x, y) % 110, 170, 150); return true; }
+  }
+  if (tree && z <= 2) {
+    if (z == 0) colour = CRGB(88, 47, 14);
+    else colour = CHSV(91 + (raceHash(x, y) & 7), 230, z == 2 ? 155 : 112);
+    return true;
+  }
+  if (z <= terrain) {
+    const uint8_t shade = raceHash(x, y) & 20;
+    colour = z == terrain ? CRGB(24, 105 + shade, 19) : CRGB(74, 49, 22);
+    return true;
+  }
+  return false;
+}
+
+void resetRaceCircuit() {
+  ++raceEventNumber;
+  raceWinnerIndex = raceEventNumber % RACE_CAR_COUNT;
+  raceViewVariant = 0;
+  racePhase = RACE_GRID;
+  racePhaseStartedAt = millis();
+  raceCameraX = 58;
+  raceCameraY = 208;
+}
+
+void updateRaceCircuit(uint32_t now) {
+  if (racePhase == RACE_GRID && now - racePhaseStartedAt >= RACE_GRID_MS) {
+    racePhase = RACE_RUNNING;
+    racePhaseStartedAt = now;
+  } else if (racePhase == RACE_RUNNING && raceCarProgress(raceWinnerIndex, now) >= RACE_TOTAL_UNITS) {
+    racePhase = RACE_RESULT;
+    racePhaseStartedAt = now;
+  } else if (racePhase == RACE_RESULT && now - racePhaseStartedAt >= RACE_RESULT_MS) {
+    resetRaceCircuit();
+  }
+
+  const uint8_t leader = raceLeader(now);
+  uint16_t leadProgress = racePhase == RACE_GRID ? 10 : raceCarProgress(leader, now);
+  leadProgress += raceViewVariant * 12;
+  const RacePathPoint target = racePathPosition(leadProgress);
+  // The view is anchored at the cube's physical top-front-left and leaves the
+  // leader near the centre of the five-by-five ground plane.
+  const int16_t targetCameraX = target.x - 8;
+  const int16_t targetCameraY = target.y - 8;
+  raceCameraX += (targetCameraX - raceCameraX) * 2 / 3;
+  raceCameraY += (targetCameraY - raceCameraY) * 2 / 3;
+}
+
+void renderRaceWinnerBanner() {
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const char *message = RACE_WIN_MESSAGES[raceWinnerIndex];
+  const uint16_t textColumns = strlen(message) * 4; // compact 3x5 glyph + spacer
+  const uint16_t offset = (millis() / 150U) % textColumns;
+  const uint8_t hue = RACE_CAR_HUES[raceWinnerIndex];
+  for (uint8_t p = 0; p < RACE_PERIMETER_COLUMNS; ++p) {
+    const uint16_t column = (offset + p) % textColumns;
+    const uint8_t letter = column / 4;
+    const uint8_t glyphColumn = column % 4;
+    if (glyphColumn == 3) continue;
+    for (uint8_t z = 0; z < N; ++z) {
+      if (glyphPixel3x5(message[letter], 2 - glyphColumn, N - 1 - z)) {
+        setPerimeterVoxel(p, z, CHSV(hue + z * 3, 255, 255));
+      }
+    }
+  }
+}
+
+void renderRaceCircuit(float t) {
+  (void)t;
+  const uint32_t now = millis();
+  updateRaceCircuit(now);
+  if (racePhase == RACE_RESULT) {
+    renderRaceWinnerBanner();
+    return;
+  }
+
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  for (uint8_t z = 0; z < LAYERS; ++z) for (uint8_t y = 0; y < ROWS; ++y) for (uint8_t x = 0; x < COLUMNS; ++x) {
+    CRGB block;
+    const int16_t worldX = raceCameraX + x * 4;
+    const int16_t worldY = raceCameraY + (N - 1 - y) * 4; // front face is nearest the virtual camera
+    if (sampleRaceCircuit(worldX, worldY, z, now, block)) setVoxel(x, y, z, block);
+  }
+
+  for (uint8_t car = 0; car < RACE_CAR_COUNT; ++car) {
+    const RacePathPoint position = raceCarPosition(car, now);
+    const int8_t localX = int8_t((position.x - raceCameraX + 2) / 4);
+    const int8_t localY = int8_t(N - 1 - ((position.y - raceCameraY + 2) / 4));
+    if (abs(position.x - (raceCameraX + localX * 4)) <= 2 &&
+        abs(position.y - (raceCameraY + (N - 1 - localY) * 4)) <= 2) {
+      setVoxel(localX, localY, 1, CHSV(RACE_CAR_HUES[car], 255, car == raceLeader(now) ? 255 : 195));
+    }
   }
 }
 
@@ -1956,6 +2243,7 @@ void renderCurrentPattern() {
     case PATTERN_OSCILLATING_WAVE: renderOscillatingWaveField(t); break;
     case PATTERN_RAINBOW_SPIRAL: renderRainbowSpiral(t); break;
     case PATTERN_PLASMA_CONTAINMENT: renderPlasmaContainment(t); break;
+    case PATTERN_RACE_CIRCUIT: renderRaceCircuit(t); break;
     default: break;
   }
 }
@@ -2115,6 +2403,17 @@ void renderMoodRing(float t) {
       case PATTERN_PLASMA_CONTAINMENT:
         mood = ringPixel == (uint8_t(t * 16.0f) % MOOD_RING_LEDS) ? CRGB(220, 120, 255) : CHSV(151, 245, 95 + scale8(wave, 125));
         break;
+      case PATTERN_RACE_CIRCUIT: {
+        const uint8_t winnerHue = RACE_CAR_HUES[raceWinnerIndex];
+        if (racePhase == RACE_RESULT) {
+          mood = ((ringPixel + millis() / 220U) & 1) ? CHSV(winnerHue, 255, 255) : CRGB(210, 210, 200);
+        } else {
+          const uint8_t leader = raceLeader(millis());
+          const uint8_t marker = (millis() / 95U + ringPixel) % MOOD_RING_LEDS;
+          mood = marker < 2 ? CHSV(RACE_CAR_HUES[leader], 255, 255) : CHSV(91, 215, 58 + scale8(wave, 75));
+        }
+        break;
+      }
       case PATTERN_ZARCH:
         mood = zarchImpactLife
           ? CHSV(12 + scale8(wave, 16), 250, 210 + scale8(wave, 45))
@@ -2152,6 +2451,7 @@ void advancePattern() {
   recordPatternRune(currentPattern);
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
   if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
+  if (currentPattern == PATTERN_RACE_CIRCUIT) resetRaceCircuit();
   patternStartedAt = millis();
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 }
@@ -2162,6 +2462,7 @@ uint32_t activePatternDwellMs() {
     return max(cycleDurationMs, AMBIENT_LONG_DWELL_MS);
   }
   if (currentPattern == PATTERN_VOXEL_WORLD) return max(cycleDurationMs, 90000UL);
+  if (currentPattern == PATTERN_RACE_CIRCUIT) return max(cycleDurationMs, 90000UL);
   return cycleDurationMs;
 }
 
@@ -2283,6 +2584,10 @@ void runShortPatternAction(bool primary) {
       if (primary) goldRingHue += 16;
       else cycleSpeed();
       break;
+    case PATTERN_RACE_CIRCUIT:
+      if (primary) resetRaceCircuit();
+      else raceViewVariant = (raceViewVariant + 1) % 3;
+      break;
     case PATTERN_MATRIX_RAIN:
     case PATTERN_MATRIX_DRIFT:
     case PATTERN_RED_MATRIX_RAIN:
@@ -2387,6 +2692,7 @@ void handleControl() {
       currentPattern = Pattern(value);
       if (currentPattern == PATTERN_ZARCH) resetZarchScene();
       if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
+      if (currentPattern == PATTERN_RACE_CIRCUIT) resetRaceCircuit();
       recordPatternRune(currentPattern);
       autoCycle = false;
       patternStartedAt = millis();
@@ -2537,10 +2843,12 @@ bool selectCanonicalPattern(int canonicalId) {
     case 71: currentPattern = PATTERN_OSCILLATING_WAVE; break;
     case 72: currentPattern = PATTERN_RAINBOW_SPIRAL; break;
     case 73: currentPattern = PATTERN_PLASMA_CONTAINMENT; break;
+    case 74: currentPattern = PATTERN_RACE_CIRCUIT; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
   if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
+  if (currentPattern == PATTERN_RACE_CIRCUIT) resetRaceCircuit();
   autoCycle = false;
   recordPatternRune(currentPattern);
   patternStartedAt = millis();
@@ -2710,6 +3018,7 @@ void setup() {
   buildGeometryLUT();
   randomSeed(esp_random());
   resetZarchScene();
+  resetRaceCircuit();
   seedLife();
   loadButtonPinPreferences();
   setupButtons();

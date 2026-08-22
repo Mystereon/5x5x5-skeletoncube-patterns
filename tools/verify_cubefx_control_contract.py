@@ -42,7 +42,7 @@ def main() -> int:
     require("function selectPattern()" in WEB, "Web gallery has no explicit Play Selected route")
     require("$('pattern').onchange=()=>selectPattern()" in WEB, "Web gallery selection is not wired to its play route")
     require("PLAY SELECTED PATTERN" in WEB, "Web gallery has no direct replay button")
-    require(len(quoted_names(WEB)) == 56, "Web gallery no longer exposes all 56 CubeFXWeb patterns")
+    require(len(quoted_names(WEB)) == 57, "Web gallery no longer exposes all 57 CubeFXWeb patterns")
     for scene in range(5):
         require(f"triggerSecret({scene}," in WEB, f"Web deck is missing secret scene {scene}")
 
@@ -67,8 +67,8 @@ def main() -> int:
 
     # BLE routing: direct pattern, secret, and acknowledgement IDs must agree.
     canonical_cases = {int(value) for value in re.findall(r"case (\d+): currentPattern = PATTERN_", FIRMWARE)}
-    expected_cases = {1, 9, 10, 11, 12, 19, 20, 21, 22, 26, 28, *range(29, 74)}
-    require(canonical_cases == expected_cases, "Firmware canonical BLE selector drifted from the 56 embedded-mode contract")
+    expected_cases = {1, 9, 10, 11, 12, 19, 20, 21, 22, 26, 28, *range(29, 75)}
+    require(canonical_cases == expected_cases, "Firmware canonical BLE selector drifted from the 57 embedded-mode contract")
     for uuid in (
         "6c75a300-7b1d-4f29-a221-000000000001",
         "6c75a300-7b1d-4f29-a221-000000000002",
@@ -77,7 +77,7 @@ def main() -> int:
         require(uuid in FIRMWARE and uuid in BLE, f"BLE UUID {uuid} is not shared by firmware and Android")
     require("enableStatusNotifications" in BLE and "handleStatus" in BLE, "Android has no firmware acknowledgement path")
 
-    print("CubeFX control contract: 56 web modes, 56 Android BLE modes, 5 web eggs, 5 Android eggs, shared BLE acknowledgements — OK")
+    print("CubeFX control contract: 57 web modes, 57 Android BLE modes, 5 web eggs, 5 Android eggs, shared BLE acknowledgements — OK")
     return 0
 
 

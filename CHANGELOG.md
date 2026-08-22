@@ -2,6 +2,14 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.7.9 — Race Circuit Viewport
+
+Added **Race Circuit**, CubeFXWeb mode **57** / Android BLE ID **74**: an original 300×300 low-poly circuit streamed through the physical 5×5×5 cube rather than stored as a world framebuffer. Its authored path has the requested modern British-GP-style rhythm—long acceleration, linked high-speed direction changes, sweepers, a hairpin, and a final complex—without reproducing a real circuit layout.
+
+The bottom layer samples a three-LED-wide grey track over stable green/brown terrain, with pale-grey markings, a chequered grid, dull yellow trackside sandbags, sparse three-layer trees, two-pixel spectators with pale-pink heads, and hand-authored smooth terrain no taller than layer three. The physical top layer is reserved for a drifting anti-aliased cloud ceiling. Four single-voxel cars run exactly three laps; the leader-tracking viewport follows the race while a winner-colour perimeter banner celebrates the finish.
+
+Short **GPIO2** restarts the grid sequence and short **GPIO4** changes the camera lead; the global long-press Banner / Next model remains unchanged. The browser and Android controller both expose the new selection. The ESP32-S3 Huge APP build verifies at **1,333,115 bytes / 42% flash** and **54,216 bytes / 16% global RAM**; CubeFXPhone’s debug APK build completes successfully with **57 embedded modes** and **74 total selectable entries**.
+
 ## v0.7.8 — Control-Path Repair
 
 Repaired the full CubeFX control path after a regression audit. CubeFXWeb’s Pattern Gallery now has both immediate selection and a deliberate **PLAY SELECTED PATTERN** route, so replaying the current effect and selecting a new effect each have a visible command path. The page now shows a command acknowledgement line and checks HTTP responses rather than silently treating every browser request as successful.
