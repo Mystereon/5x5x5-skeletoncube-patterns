@@ -2,6 +2,14 @@
 
 All notable changes to SkeletonCube Patterns are recorded here.
 
+## v0.8.0 — User Sequencer and Complete FastLED Collection
+
+CubeFXWeb now includes **five persistent User Pattern slots**, each with a compact **sixteen-step** sequence. The new browser `05 SEQUENCER` tab presents five layer panels (`z = 4` through `z = 0`), so any physical voxel can be toggled directly. Every step has its own RGB colour and 40 ms–5 s hold time. The browser stages all sixteen masks locally, uploads them deliberately through a bounded 32-hex-digit API, and commits one **320-byte** slot to NVS only when requested. All five slots occupy **1,600 bytes** of working RAM. User Pattern modes 01–05 are selectable as browser modes 58–62 and Android BLE IDs 75–79; short GPIO2 restarts at step 01 while short GPIO4 inspects the next step.
+
+The complete official FastLED example collection is now retained unchanged as the pinned `third_party/FastLED` Git submodule, with its 83 source directories documented in [`FASTLED_COLLECTION.md`](FASTLED_COLLECTION.md). Those source files remain pure FastLED content. Alongside them, CubeFXWeb now provides **83 separately labelled `CubeFX Interpretation — <source>` modes**, one for every official source directory. These CubeFX-owned 3-D interpretations are browser modes 63–145 and Android BLE IDs 80–162; their source provenance is explicit and they never replace or claim to be FastLED originals.
+
+The public library therefore has a transparent floor of **228 entries**: 57 native CubeFXWeb modes, 5 user-created modes, 83 untouched official FastLED source entries, and 83 separately labelled CubeFX interpretations. The linked ESP32-S3 Huge APP build measures **1,352,003 bytes / 42% flash** and **55,832 bytes / 17% global RAM**.
+
 ## v0.7.9 — Race Circuit Viewport
 
 Added **Race Circuit**, CubeFXWeb mode **57** / Android BLE ID **74**: an original 300×300 low-poly circuit streamed through the physical 5×5×5 cube rather than stored as a world framebuffer. Its authored path has the requested modern British-GP-style rhythm—long acceleration, linked high-speed direction changes, sweepers, a hairpin, and a final complex—without reproducing a real circuit layout.

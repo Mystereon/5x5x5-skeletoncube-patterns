@@ -11,8 +11,8 @@ android {
         applicationId = "com.mystereon.cubefxcontroller"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.7.9"
+        versionCode = 4
+        versionName = "0.8.0"
     }
     buildFeatures { compose = true }
 

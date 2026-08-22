@@ -43,6 +43,8 @@
 #include <string.h>
 #include "CubeFXConfig.h"
 #include "RaceCircuitTypes.h"
+#include "UserPatternTypes.h"
+#include "FastLEDInterpretationTypes.h"
 
 // -----------------------------------------------------------------------------
 // Wi-Fi setup
@@ -223,10 +225,16 @@ enum Pattern : uint8_t {
   PATTERN_RAINBOW_SPIRAL,
   PATTERN_PLASMA_CONTAINMENT,
   PATTERN_RACE_CIRCUIT,
-  PATTERN_COUNT
+  PATTERN_USER_PATTERN_01,
+  PATTERN_USER_PATTERN_02,
+  PATTERN_USER_PATTERN_03,
+  PATTERN_USER_PATTERN_04,
+  PATTERN_USER_PATTERN_05,
+  PATTERN_FASTLED_INTERPRETATION_FIRST,
+  PATTERN_COUNT = PATTERN_FASTLED_INTERPRETATION_FIRST + FASTLED_INTERPRETATION_COUNT
 };
 
-const char *const patternNames[PATTERN_COUNT] = {
+const char *const patternNames[PATTERN_FASTLED_INTERPRETATION_FIRST] = {
   "Red Vector Cube", "3-D Matrix Rain", "Neon Plasma", "Volume Fire",
   "Twin Spirals", "Wrapping Comets", "Single-player Pong", "Conway 3-D Life",
   "Cloud Volume", "White Glitter", "Corner Cubes", "3x5 Perimeter Banner",
@@ -234,7 +242,7 @@ const char *const patternNames[PATTERN_COUNT] = {
   "Running Legs", "Fairies in Green Box", "Orange Fish Tank", "Three-Layer Pyramid", "Matrix Drift",
   "Intense Fire", "Magical Blue Fire", "Explosions", "Launching Fireworks", "Pixel Pasture", "Red Matrix Rain",
   "Voxel Minesweeper", "Big Moon & Stars", "Nixie Tube", "Black Hole Vortex", "Stargate Dial-Up",
-  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D", "Cloud-Top Rain", "Rotating Gold O", "Reactor Core", "Reactor Core Meltdown", "Targeting System", "Phosphor Green Radar", "Ghost Detector", "Alert", "Intersecting Planes", "Oscillating Wave Field", "Rainbow Spiral", "Plasma Entity Containment", "Race Circuit"
+  "3-D Defender", "3-D Chequerboard", "Hellraiser Puzzle Cube", "3-D Rubik's Cube", "Lissajous Layer Ripple", "Zarch: Voxel Defender", "Ring Bouncer", "Help Me Obi-Wan Hologram", "Voxel World Explorer", "Phone VU Meter", "Phone Spectrum 3-D", "Cloud-Top Rain", "Rotating Gold O", "Reactor Core", "Reactor Core Meltdown", "Targeting System", "Phosphor Green Radar", "Ghost Detector", "Alert", "Intersecting Planes", "Oscillating Wave Field", "Rainbow Spiral", "Plasma Entity Containment", "Race Circuit", "User Pattern 01", "User Pattern 02", "User Pattern 03", "User Pattern 04", "User Pattern 05"
 };
 
 Pattern currentPattern = PATTERN_VECTOR_CUBE;
@@ -244,6 +252,13 @@ uint8_t frameRateLimit = 120;       // 30 .. 120 FPS render cap; default is perf
 uint32_t cycleDurationMs = 30000;   // 5 .. 120 seconds from the browser
 uint32_t patternStartedAt = 0;
 uint32_t lastFrameAt = 0;
+
+// Five editable 16-step slots consume 1,600 bytes of RAM. Their exact 320-byte
+// blobs are persisted independently in NVS, so user work survives a power cycle.
+UserPatternSlot userPatternSlots[USER_PATTERN_SLOT_COUNT];
+Preferences userPatternPreferences;
+uint8_t userPatternPlaybackStep = 0;
+uint32_t userPatternStepStartedAt = 0;
 
 // Phone audio arrives as a compact BLE envelope, never as microphone samples.
 constexpr uint8_t AUDIO_PACKET_MAGIC = 0xA7;
@@ -266,6 +281,179 @@ float effectTime() {
   // Motion speed is independent of render cadence. This is roughly 2.4× faster
   // at the existing default value and reaches about 2.5× the former top speed.
   return millis() * 0.001f * (0.15f + speedControl / 48.0f);
+}
+
+int8_t activeUserPatternSlot() {
+  if (currentPattern < PATTERN_USER_PATTERN_01 || currentPattern > PATTERN_USER_PATTERN_05) return -1;
+  return int8_t(currentPattern - PATTERN_USER_PATTERN_01);
+}
+
+bool isFastLEDInterpretation(uint8_t pattern) {
+  return pattern >= PATTERN_FASTLED_INTERPRETATION_FIRST && pattern < PATTERN_COUNT;
+}
+
+uint8_t activeFastLEDInterpretation() {
+  return uint8_t(currentPattern - PATTERN_FASTLED_INTERPRETATION_FIRST);
+}
+
+String patternDisplayName(uint8_t pattern) {
+  if (!isFastLEDInterpretation(pattern)) return String(patternNames[pattern]);
+  return String("CubeFX Interpretation — ") + FASTLED_INTERPRETATION_SOURCES[uint8_t(pattern - PATTERN_FASTLED_INTERPRETATION_FIRST)];
+}
+
+void clearUserPatternSlot(uint8_t slot) {
+  if (slot >= USER_PATTERN_SLOT_COUNT) return;
+  for (uint8_t step = 0; step < USER_PATTERN_STEP_COUNT; ++step) {
+    UserPatternStep &target = userPatternSlots[slot].steps[step];
+    memset(target.mask, 0, sizeof(target.mask));
+    target.red = 0;
+    target.green = 180;
+    target.blue = 255;
+    target.holdTicks = 12;
+  }
+}
+
+void resetUserPatternPlayback() {
+  userPatternPlaybackStep = 0;
+  userPatternStepStartedAt = millis();
+}
+
+void loadUserPatterns() {
+  userPatternPreferences.begin("cubefxusr", true);
+  for (uint8_t slot = 0; slot < USER_PATTERN_SLOT_COUNT; ++slot) {
+    const String key = String("usrpat") + slot;
+    if (userPatternPreferences.getBytesLength(key.c_str()) != sizeof(UserPatternSlot) ||
+        userPatternPreferences.getBytes(key.c_str(), &userPatternSlots[slot], sizeof(UserPatternSlot)) != sizeof(UserPatternSlot)) {
+      clearUserPatternSlot(slot);
+    }
+  }
+  userPatternPreferences.end();
+  resetUserPatternPlayback();
+}
+
+bool saveUserPatternSlot(uint8_t slot) {
+  if (slot >= USER_PATTERN_SLOT_COUNT) return false;
+  const String key = String("usrpat") + slot;
+  userPatternPreferences.begin("cubefxusr", false);
+  const size_t written = userPatternPreferences.putBytes(key.c_str(), &userPatternSlots[slot], sizeof(UserPatternSlot));
+  userPatternPreferences.end();
+  return written == sizeof(UserPatternSlot);
+}
+
+int8_t hexNibble(char character) {
+  if (character >= '0' && character <= '9') return character - '0';
+  if (character >= 'a' && character <= 'f') return character - 'a' + 10;
+  if (character >= 'A' && character <= 'F') return character - 'A' + 10;
+  return -1;
+}
+
+bool decodeUserPatternMask(const String &encoded, uint8_t *mask) {
+  if (encoded.length() != USER_PATTERN_MASK_BYTES * 2) return false;
+  for (uint8_t i = 0; i < USER_PATTERN_MASK_BYTES; ++i) {
+    const int8_t high = hexNibble(encoded[i * 2]);
+    const int8_t low = hexNibble(encoded[i * 2 + 1]);
+    if (high < 0 || low < 0) return false;
+    mask[i] = uint8_t((high << 4) | low);
+  }
+  mask[USER_PATTERN_MASK_BYTES - 1] &= 0x1F;
+  return true;
+}
+
+String encodeUserPatternMask(const uint8_t *mask) {
+  static const char HEX_DIGITS[] = "0123456789ABCDEF";
+  String encoded;
+  encoded.reserve(USER_PATTERN_MASK_BYTES * 2);
+  for (uint8_t i = 0; i < USER_PATTERN_MASK_BYTES; ++i) {
+    encoded += HEX_DIGITS[mask[i] >> 4];
+    encoded += HEX_DIGITS[mask[i] & 15];
+  }
+  return encoded;
+}
+
+String userPatternSlotJson(uint8_t slot) {
+  String body;
+  body.reserve(1450);
+  body += "{\"ok\":true,\"slot\":" + String(slot) + ",\"steps\":[";
+  for (uint8_t step = 0; step < USER_PATTERN_STEP_COUNT; ++step) {
+    if (step) body += ',';
+    const UserPatternStep &source = userPatternSlots[slot].steps[step];
+    body += "{\"mask\":\"" + encodeUserPatternMask(source.mask) + "\",\"r\":" + String(source.red);
+    body += ",\"g\":" + String(source.green) + ",\"b\":" + String(source.blue) + ",\"hold\":" + String(source.holdTicks) + "}";
+  }
+  body += "]}";
+  return body;
+}
+
+void renderUserPattern(uint8_t slot) {
+  if (slot >= USER_PATTERN_SLOT_COUNT) return;
+  const uint32_t now = millis();
+  UserPatternStep &step = userPatternSlots[slot].steps[userPatternPlaybackStep];
+  const uint32_t durationMs = max<uint16_t>(2, step.holdTicks) * 20UL;
+  if (now - userPatternStepStartedAt >= durationMs) {
+    userPatternPlaybackStep = (userPatternPlaybackStep + 1) % USER_PATTERN_STEP_COUNT;
+    userPatternStepStartedAt = now;
+  }
+  UserPatternStep &visible = userPatternSlots[slot].steps[userPatternPlaybackStep];
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const CRGB colour(visible.red, visible.green, visible.blue);
+  for (uint8_t voxel = 0; voxel < MATRIX_LEDS; ++voxel) {
+    if (visible.mask[voxel >> 3] & (1 << (voxel & 7))) leds[voxel] = colour;
+  }
+}
+
+void renderFastLEDInterpretation(uint8_t interpretation, float t) {
+  // CubeFX-owned 3-D renderings. The official FastLED source remains unchanged
+  // in third_party/FastLED and is never replaced by this interpretation engine.
+  fill_solid(leds, MATRIX_LEDS, CRGB::Black);
+  const FastLEDInterpretationProfile profile = fastLEDInterpretationProfile(interpretation);
+  const uint8_t clock = uint8_t(t * (12 + (interpretation % 7) * 3));
+  const uint8_t seed = interpretation * 29;
+  for (uint8_t z = 0; z < N; ++z) for (uint8_t y = 0; y < N; ++y) for (uint8_t x = 0; x < N; ++x) {
+    const uint16_t voxel = z * 25 + y * 5 + x;
+    const uint8_t plane = x * 37 + y * 23 + z * 31 + clock;
+    CRGB colour = CRGB::Black;
+    switch (profile) {
+      case FLX_PRISM:
+        colour = CHSV(seed + plane, 220, 80 + scale8(sin8(plane), 175));
+        break;
+      case FLX_MOTION: {
+        const uint8_t lane = (clock / 32 + interpretation) % 5;
+        if (x == lane || y == lane) colour = CHSV(seed + z * 26, 245, 245);
+        else if ((x + y + z + lane) % 5 == 0) colour = CHSV(seed + 128, 180, 85);
+        break;
+      }
+      case FLX_FIRE: {
+        const uint8_t heat = qsub8(255 - z * 47, inoise8(x * 61 + clock * 3, y * 61, z * 75 + seed));
+        colour = HeatColor(heat);
+        break;
+      }
+      case FLX_FIELD: {
+        const uint8_t field = inoise8(x * 49 + clock * 2, y * 49 + seed, z * 49 + clock);
+        colour = CHSV(seed + field / 2, 230, field > 98 ? field : 0);
+        break;
+      }
+      case FLX_WAVE: {
+        const uint8_t crest = sin8(clock + x * 29 + y * 17 + z * 39);
+        colour = CHSV(seed + 140 + scale8(crest, 55), 205, scale8(crest, 245));
+        break;
+      }
+      case FLX_AUDIO: {
+        const uint8_t band = audioLiveValue(audioBands[(x + z) % AUDIO_BAND_COUNT], millis());
+        if (y <= scale8(band, 4) / 51) colour = CHSV(seed + x * 29, 235, 65 + band / 2);
+        break;
+      }
+      case FLX_PALETTE:
+        colour = CHSV(seed + x * 24 + y * 15 + z * 10 + clock, 180 + ((x + y + z) & 1) * 65, 180 + ((voxel + clock) & 1) * 75);
+        break;
+      case FLX_SIGNAL: {
+        const uint8_t probe = (clock / 32 + interpretation) % MATRIX_LEDS;
+        if (voxel == probe) colour = CRGB::White;
+        else if ((x + y + z + clock / 48) % 5 == 0) colour = CHSV(seed, 230, 115);
+        break;
+      }
+    }
+    leds[voxel] = colour;
+  }
 }
 
 void renderVectorCube(float t) {
@@ -2186,6 +2374,10 @@ void renderCurrentPattern() {
     }
     secretScene = 255;
   }
+  if (isFastLEDInterpretation(currentPattern)) {
+    renderFastLEDInterpretation(activeFastLEDInterpretation(), t);
+    return;
+  }
   switch (currentPattern) {
     case PATTERN_VECTOR_CUBE: renderVectorCube(t); break;
     case PATTERN_MATRIX_RAIN: renderMatrixRain(t); break;
@@ -2244,6 +2436,11 @@ void renderCurrentPattern() {
     case PATTERN_RAINBOW_SPIRAL: renderRainbowSpiral(t); break;
     case PATTERN_PLASMA_CONTAINMENT: renderPlasmaContainment(t); break;
     case PATTERN_RACE_CIRCUIT: renderRaceCircuit(t); break;
+    case PATTERN_USER_PATTERN_01: renderUserPattern(0); break;
+    case PATTERN_USER_PATTERN_02: renderUserPattern(1); break;
+    case PATTERN_USER_PATTERN_03: renderUserPattern(2); break;
+    case PATTERN_USER_PATTERN_04: renderUserPattern(3); break;
+    case PATTERN_USER_PATTERN_05: renderUserPattern(4); break;
     default: break;
   }
 }
@@ -2253,9 +2450,32 @@ void renderMoodRing(float t) {
   // cannot consume, fade, or otherwise alter a matrix voxel. Each scene uses
   // only twelve inexpensive sin8-based accents; no extra voxel-frame is needed.
   CRGB mood = CRGB(12, 24, 30);
+  const int8_t userSlot = activeUserPatternSlot();
+  const bool fastLEDMode = isFastLEDInterpretation(currentPattern);
   for (uint8_t ringPixel = 0; ringPixel < MOOD_RING_LEDS; ++ringPixel) {
     const uint8_t phase = uint8_t(t * 42.0f) + ringPixel * 21;
     const uint8_t wave = sin8(phase);
+    if (fastLEDMode) {
+      const uint8_t interpretation = activeFastLEDInterpretation();
+      const uint8_t seed = interpretation * 29;
+      const FastLEDInterpretationProfile profile = fastLEDInterpretationProfile(interpretation);
+      if (profile == FLX_FIRE) mood = ringPixel == (uint8_t(t * 11.0f) % MOOD_RING_LEDS) ? CRGB(255, 225, 135) : CHSV(12 + scale8(wave, 25), 245, 95 + scale8(wave, 125));
+      else if (profile == FLX_AUDIO) mood = CHSV(seed + 145, 235, 55 + scale8(audioLiveValue(audioLoudness, millis()), 180));
+      else if (ringPixel == (uint8_t(t * 14.0f) % MOOD_RING_LEDS)) mood = CRGB::White;
+      else mood = CHSV(seed + 128, 220, 70 + scale8(wave, 110));
+      mood.nscale8_video(MOOD_RING_BRIGHTNESS);
+      leds[MOOD_RING_START + ringPixel] = mood;
+      continue;
+    }
+    if (userSlot >= 0) {
+      const UserPatternStep &step = userPatternSlots[userSlot].steps[userPatternPlaybackStep];
+      const uint8_t hue = rgb2hsv_approximate(CRGB(step.red, step.green, step.blue)).hue;
+      if (ringPixel == (uint8_t(t * 13.0f) % MOOD_RING_LEDS)) mood = CRGB::White;
+      else mood = CHSV(hue + 128, 220, 70 + scale8(wave, 95));
+      mood.nscale8_video(MOOD_RING_BRIGHTNESS);
+      leds[MOOD_RING_START + ringPixel] = mood;
+      continue;
+    }
     switch (currentPattern) {
       case PATTERN_AQUARIUM:
         // The acrylic is the water. Bright blue caustics define the enclosure
@@ -2452,6 +2672,7 @@ void advancePattern() {
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
   if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
   if (currentPattern == PATTERN_RACE_CIRCUIT) resetRaceCircuit();
+  if (activeUserPatternSlot() >= 0) resetUserPatternPlayback();
   patternStartedAt = millis();
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 }
@@ -2499,6 +2720,14 @@ void cycleSpeed() {
 void runShortPatternAction(bool primary) {
   // Pattern-aware operations first. Every other pattern still receives a
   // safe, useful fallback: Button 1 adjusts speed; Button 2 adjusts brightness.
+  if (activeUserPatternSlot() >= 0) {
+    if (primary) resetUserPatternPlayback();
+    else {
+      userPatternPlaybackStep = (userPatternPlaybackStep + 1) % USER_PATTERN_STEP_COUNT;
+      userPatternStepStartedAt = millis();
+    }
+    return;
+  }
   switch (currentPattern) {
     case PATTERN_BANNER:
       if (primary) bannerHue += 32;
@@ -2648,9 +2877,9 @@ void updateButtons() {
 // -----------------------------------------------------------------------------
 String stateJson() {
   String body;
-  body.reserve(180);
+  body.reserve(280);
   body += "{\"pattern\":" + String(uint8_t(currentPattern));
-  body += ",\"name\":\"" + String(patternNames[currentPattern]) + "\"";
+  body += ",\"name\":\"" + patternDisplayName(currentPattern) + "\"";
   body += ",\"brightness\":" + String(brightness);
   body += ",\"speed\":" + String(speedControl);
   body += ",\"fps\":" + String(frameRateLimit);
@@ -2660,6 +2889,8 @@ String stateJson() {
   body += ",\"bannerHue\":" + String(bannerHue);
   body += ",\"bannerSpeed\":" + String(bannerScrollSpeed);
   body += ",\"bannerFont\":" + String(uint8_t(bannerFont));
+  body += ",\"userSlot\":" + String(activeUserPatternSlot());
+  body += ",\"userStep\":" + String(userPatternPlaybackStep);
   body += ",\"ip\":\"" + networkAddress + "\"";
   body += ",\"ap\":" + String(usingAccessPoint ? "true" : "false") + "}";
   return body;
@@ -2685,7 +2916,54 @@ void handleRoot() { web.send_P(200, "text/html", INDEX_HTML); }
 void handleState() { web.send(200, "application/json", stateJson()); }
 void handleFrame() { web.send(200, "application/json", frameJson()); }
 
+bool validUserPatternSlot(int slot) { return slot >= 0 && slot < USER_PATTERN_SLOT_COUNT; }
+bool validUserPatternStep(int step) { return step >= 0 && step < USER_PATTERN_STEP_COUNT; }
+
+void sendUserPatternError(const char *message) {
+  web.send(400, "application/json", String("{\"ok\":false,\"message\":\"") + message + "\"}");
+}
+
+bool handleUserPatternControl() {
+  if (!(web.hasArg("userLoad") || web.hasArg("userStep") || web.hasArg("userClear") || web.hasArg("userSave") || web.hasArg("userPlay"))) return false;
+  const char *slotArgument = web.hasArg("userLoad") ? "userLoad" : web.hasArg("userStep") ? "slot" : web.hasArg("userClear") ? "userClear" : web.hasArg("userSave") ? "userSave" : "userPlay";
+  const int slot = web.arg(slotArgument).toInt();
+  if (!validUserPatternSlot(slot)) { sendUserPatternError("invalid user pattern slot"); return true; }
+  if (web.hasArg("userLoad")) {
+    web.send(200, "application/json", userPatternSlotJson(uint8_t(slot)));
+    return true;
+  }
+  if (web.hasArg("userClear")) {
+    clearUserPatternSlot(uint8_t(slot));
+    web.send(200, "application/json", userPatternSlotJson(uint8_t(slot)));
+    return true;
+  }
+  if (web.hasArg("userSave")) {
+    const bool saved = saveUserPatternSlot(uint8_t(slot));
+    web.send(saved ? 200 : 500, "application/json", saved ? "{\"ok\":true,\"message\":\"slot saved\"}" : "{\"ok\":false,\"message\":\"slot save failed\"}");
+    return true;
+  }
+  if (web.hasArg("userPlay")) {
+    currentPattern = Pattern(PATTERN_USER_PATTERN_01 + slot);
+    autoCycle = false;
+    patternStartedAt = millis();
+    resetUserPatternPlayback();
+    web.send(200, "application/json", stateJson());
+    return true;
+  }
+  const int step = web.arg("step").toInt();
+  if (!validUserPatternStep(step) || !web.hasArg("mask")) { sendUserPatternError("invalid user pattern step"); return true; }
+  UserPatternStep &target = userPatternSlots[slot].steps[step];
+  if (!decodeUserPatternMask(web.arg("mask"), target.mask)) { sendUserPatternError("invalid 32 digit mask"); return true; }
+  target.red = constrain(web.arg("r").toInt(), 0, 255);
+  target.green = constrain(web.arg("g").toInt(), 0, 255);
+  target.blue = constrain(web.arg("b").toInt(), 0, 255);
+  target.holdTicks = constrain(web.arg("hold").toInt(), 2, 250);
+  web.send(200, "application/json", "{\"ok\":true,\"message\":\"step staged\"}");
+  return true;
+}
+
 void handleControl() {
+  if (handleUserPatternControl()) return;
   if (web.hasArg("pattern")) {
     const int value = web.arg("pattern").toInt();
     if (value >= 0 && value < PATTERN_COUNT) {
@@ -2693,6 +2971,7 @@ void handleControl() {
       if (currentPattern == PATTERN_ZARCH) resetZarchScene();
       if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
       if (currentPattern == PATTERN_RACE_CIRCUIT) resetRaceCircuit();
+      if (activeUserPatternSlot() >= 0) resetUserPatternPlayback();
       recordPatternRune(currentPattern);
       autoCycle = false;
       patternStartedAt = millis();
@@ -2786,6 +3065,14 @@ bool saveButtonPins(int primary, int secondary) {
 bool selectCanonicalPattern(int canonicalId) {
   // The mobile catalog exposes the canonical standalone library. CubeFXWeb
   // embeds the mapped effects below plus this controller-specific Ring Bouncer.
+  if (canonicalId >= FASTLED_INTERPRETATION_CANONICAL_FIRST &&
+      canonicalId < FASTLED_INTERPRETATION_CANONICAL_FIRST + FASTLED_INTERPRETATION_COUNT) {
+    currentPattern = Pattern(PATTERN_FASTLED_INTERPRETATION_FIRST + canonicalId - FASTLED_INTERPRETATION_CANONICAL_FIRST);
+    autoCycle = false;
+    recordPatternRune(currentPattern);
+    patternStartedAt = millis();
+    return true;
+  }
   switch (canonicalId) {
     case 1: currentPattern = PATTERN_VECTOR_CUBE; break;
     case 9: currentPattern = PATTERN_MATRIX_RAIN; break;
@@ -2844,11 +3131,17 @@ bool selectCanonicalPattern(int canonicalId) {
     case 72: currentPattern = PATTERN_RAINBOW_SPIRAL; break;
     case 73: currentPattern = PATTERN_PLASMA_CONTAINMENT; break;
     case 74: currentPattern = PATTERN_RACE_CIRCUIT; break;
+    case 75: currentPattern = PATTERN_USER_PATTERN_01; break;
+    case 76: currentPattern = PATTERN_USER_PATTERN_02; break;
+    case 77: currentPattern = PATTERN_USER_PATTERN_03; break;
+    case 78: currentPattern = PATTERN_USER_PATTERN_04; break;
+    case 79: currentPattern = PATTERN_USER_PATTERN_05; break;
     default: return false;
   }
   if (currentPattern == PATTERN_ZARCH) resetZarchScene();
   if (currentPattern == PATTERN_RING_BOUNCER) resetRingBouncer();
   if (currentPattern == PATTERN_RACE_CIRCUIT) resetRaceCircuit();
+  if (activeUserPatternSlot() >= 0) resetUserPatternPlayback();
   autoCycle = false;
   recordPatternRune(currentPattern);
   patternStartedAt = millis();
@@ -3019,6 +3312,7 @@ void setup() {
   randomSeed(esp_random());
   resetZarchScene();
   resetRaceCircuit();
+  loadUserPatterns();
   seedLife();
   loadButtonPinPreferences();
   setupButtons();
